@@ -1,1 +1,1 @@
-{"name":"pixel-community","version":"0.9.2","type":"module","private":true,"scripts":{"pack":"bun mapp/build.mjs","build:sandbox":"bun run pack","build":"node scripts/build.mjs","test":"node --test tests/*.test.mjs","check":"node scripts/check.mjs","start":"node server/index.mjs","dev":"node scripts/dev.mjs"}}
+{"name":"linuxdo-webmaster","version":"0.9.2","type":"module","private":true,"scripts":{"pack":"bun mapp/build.mjs","test":"cd tests && node --test *.test.mjs","check":"node scripts/check.mjs","start":"node server/index.mjs","dev":"node scripts/dev.mjs"}}

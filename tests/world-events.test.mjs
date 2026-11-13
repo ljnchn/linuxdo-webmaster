@@ -162,7 +162,7 @@ function database(){
  return {sqlite,prepare(sql){return {bind(...args){return {first:()=>sqlite.prepare(sql).get(...args)||null,all:()=>({results:sqlite.prepare(sql).all(...args)}),run:()=>({meta:{changes:Number(sqlite.prepare(sql).run(...args).changes)}})};}};},async batch(statements){sqlite.exec('BEGIN');try{const results=statements.map(s=>s.run());sqlite.exec('COMMIT');return results;}catch(e){sqlite.exec('ROLLBACK');throw e;}}};
 }
 
-test('the shared server/Worker store reads and operates old v4/v3 saves without losing runs or rewards',async()=>{
+test('the SQLite store reads and operates old v4/v3 saves without losing runs or rewards',async()=>{
  const db=database(),store=createSharedStore(db,'sandbox',{now:()=>1000});
  try{
   for(const old of oldEvents)for(const version of [4,3]){

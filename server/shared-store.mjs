@@ -5,8 +5,7 @@ import { earnedAchievements } from '../src/achievements.mjs';
 export function createSharedStore(db,channel,{now=Date.now}={}) {
  if(!['development','sandbox','production','shared'].includes(channel))throw new Error('Invalid channel');
  const prepare=(sql,...values)=>db.prepare(sql).bind(...values);
- // Existing Node and D1 databases may predate migration 0001. The same idempotent
- // DDL keeps those adapters compatible without rewriting any player snapshots.
+ // Older databases may predate migration 0001; preserve their player snapshots.
  let backupSchema;
  function ensureBackupSchema(){
   return backupSchema??=Promise.resolve().then(()=>prepare('CREATE TABLE IF NOT EXISTS last_run_backups (identity TEXT PRIMARY KEY NOT NULL, run_id TEXT NOT NULL, channel TEXT NOT NULL, state TEXT NOT NULL, revision INTEGER NOT NULL, snapshot TEXT NOT NULL, saved_at INTEGER NOT NULL)').run()).catch(error=>{backupSchema=undefined;throw error;});
@@ -40,7 +39,7 @@ export function createSharedStore(db,channel,{now=Date.now}={}) {
    const achievements=await achievementsOf(key);
    const result={...resultOf(next),achievements:[...achievements,...earned.filter(achievement=>!achievements.some(unlocked=>unlocked.id===achievement.id))].sort((a,b)=>a.id.localeCompare(b.id))};
    if(input.action.type==='restart'){await ensureBackupSchema();result.backup={...resultOf(row),runId:row.run_id,savedAt:timestamp};}
-   // D1 batch is atomic. CAS plus a unique commit token guards every dependent insert.
+   // The SQLite batch is atomic. CAS and a commit token guard every dependent insert.
    const statements=[prepare('UPDATE players SET state=?,revision=?,name=?,members=?,days=?,speed=?,active=?,credit_ms=?,last_seen=?,commit_token=?,run_id=?,started=? WHERE identity=? AND revision=?',next.state,next.revision,next.name,next.members,next.days,next.speed,next.active,next.credit_ms,next.last_seen,token,next.run_id,next.started,key,row.revision),
     prepare('INSERT INTO operations(identity,key,fingerprint,response) SELECT identity,?,?,? FROM players WHERE identity=? AND commit_token=?',input.idempotencyKey,fp,JSON.stringify(result),key,token),
     prepare('INSERT INTO audit(identity,revision,action,created_at) SELECT identity,revision,?,? FROM players WHERE identity=? AND commit_token=?',JSON.stringify(input.action),timestamp,key,token)];

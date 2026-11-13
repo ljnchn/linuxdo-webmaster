@@ -29,11 +29,6 @@ references/
 
 pids/
 
-worker/assets.generated.mjs
 
 .qa/
 
-# Export metadata and generated downloads from the original source archive.
-/SOURCE-MANIFEST.json
-/SOURCE-PACKAGE.md
-/public/downloads/

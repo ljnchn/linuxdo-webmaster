@@ -1,5 +1,5 @@
-import {RULES,SERVERS,STRATEGIES,REGISTRATIONS,CHALLENGE,BUILDING_ACTIVITIES,activityStatus,createGame,createChallengeGame,applyAction,summarize,validateState,migrateState} from './engine.mjs';
-import {createWorld,ROOM_LAYOUT,SCENE_BUILDINGS,DEFAULT_SCENE_CENTER,getTroublemakerActors,getCommunityActors,getSceneActors,WORLD_WIDTH,WORLD_HEIGHT} from './world.mjs';
+import {RULES,SERVERS,STRATEGIES,REGISTRATIONS,CHALLENGE,BUILDING_ACTIVITIES,activityStatus,createChallengeGame,applyAction,summarize,validateState,migrateState} from './engine.mjs';
+import {createWorld,ROOM_LAYOUT,SCENE_BUILDINGS,DEFAULT_SCENE_CENTER,getCommunityActors,getSceneActors,WORLD_WIDTH,WORLD_HEIGHT} from './world.mjs';
 import {createChatSchedule,placeChat} from './ambient-chat.mjs';
 import {createClock} from './clock.mjs';
 import {createMusicPlayer} from './music.mjs';

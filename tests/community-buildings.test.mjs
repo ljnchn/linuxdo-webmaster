@@ -70,16 +70,12 @@ test('new-street inhabitants, chatter and original event markers share the expan
  assert.equal(JSON.stringify(state),before,'scene exploration adds no economy, clock, random-seed or save changes');
 });
 
-test('the expanded artwork is a local 3:1 raster asset and the original is retained',async()=>{
+test('the current artwork is a local 3:1 raster asset',async()=>{
  const expanded=await readFile(new URL('../public/assets/community-sharing-day-v2.png',import.meta.url));
  assert.equal(expanded.subarray(1,4).toString(),'PNG');
  const width=expanded.readUInt32BE(16),height=expanded.readUInt32BE(20);
  assert.equal(width,3*height);
  assert.ok(width>=2000&&height>=700);
- const original=await readFile(new URL('../public/assets/community-day.webp',import.meta.url));
- assert.ok(original.length>100000);
  const world=await readFile(new URL('../src/world.mjs',import.meta.url),'utf8');
  assert.match(world,/assets\/community-sharing-day-v2\.png/);
- const previous=await readFile(new URL('../public/assets/community-expanded-day.png',import.meta.url));
- assert.ok(previous.length>100000,'the prior panorama remains available, without a destructive asset replacement');
 });

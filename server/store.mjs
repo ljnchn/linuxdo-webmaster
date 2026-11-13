@@ -2,7 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { readFileSync } from 'node:fs';
 import { createSharedStore } from './shared-store.mjs';
 export { validateInput } from './protocol.mjs';
-// Local reference adapter for the identical D1 store. Development is never hosted.
+// SQLite statements and atomic transactions for the game store.
 export function createStore(path,channel,options={}) {
  const sqlite=new DatabaseSync(path);sqlite.exec('PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;');
  if(channel==='shared'&&sqlite.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='players'").get()){
