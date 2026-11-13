@@ -8,7 +8,7 @@ function harness(transport,local=false){
  const api=new Function('transport','local','node','screens',`
  let dialogRevision=0;
  const state={day:4,members:12},fmt=String,icon=()=>'',esc=s=>String(s).replaceAll('<','&lt;');
- const $=()=>node,markup=n=>n,open=(title,html)=>{dialogRevision++;screens.push(html);};
+ const $=()=>node,markup=n=>n,open=(title,html)=>{dialogRevision++;screens.push(html);},loadRankProfiles=()=>{};
  ${rankSource}
  return {rank,leave:()=>dialogRevision++};`)(transport,local,node,screens);
  return {...api,node,screens};

@@ -3,11 +3,11 @@
   "id": "01a1c987-3436-75a8-8864-052fdcd1959a",
   "name": "我要当站长",
   "tags": ["游戏", "模拟经营", "像素", "休闲", "社区"],
-  "version": "0.9.2",
+  "version": "0.10.0",
   "entry": "index.html",
   "script": "app.js",
   "style": "app.css",
-  "permissions": ["storage.read", "storage.write", "audio.webAudio", "files.save"],
+  "permissions": ["storage.read", "storage.write", "audio.webAudio", "files.save", "user.lookup"],
   "assets": ["assets/community-sharing-day-v2.png"],
   "endpoints": {},
   "media": {}

@@ -20,9 +20,9 @@ function started(random = () => 0) {
 }
 
 test('original short lines and timing configuration are immutable display data', () => {
-  assert.deepEqual(CHAT_TIMING, { showMs: 5000, firstMinMs: 3000, firstMaxMs: 6000, gapMinMs: 8000, gapMaxMs: 15000 });
+  assert.deepEqual(CHAT_TIMING, { showMs: 5000, firstMinMs: 3000, firstMaxMs: 6000, gapMinMs: 5000, gapMaxMs: 9000 });
   assert.ok(Object.isFrozen(CHAT_TIMING) && Object.isFrozen(CHAT_LINES));
-  assert.ok(CHAT_LINES.length >= 20);
+  assert.ok(CHAT_LINES.length >= 60);
   assert.equal(new Set(CHAT_LINES.map(line => line.text)).size, CHAT_LINES.length);
   for (const line of CHAT_LINES) {
     assert.ok(Object.isFrozen(line));
@@ -32,7 +32,7 @@ test('original short lines and timing configuration are immutable display data',
   }
 });
 
-test('200ms samples show one sentence for five seconds, then wait eight to fifteen seconds', () => {
+test('200ms samples show one sentence for five seconds, then wait five to nine seconds', () => {
   for (const randomValue of [0, 0.5, 0.999999]) {
     const schedule = createChatSchedule({ random: () => randomValue });
     const transitions = [];
@@ -52,7 +52,7 @@ test('200ms samples show one sentence for five seconds, then wait eight to fifte
     for (let i = 1; i < transitions.length; i++) {
       const elapsed = transitions[i].now - transitions[i - 1].now;
       if (!transitions[i].current) assert.equal(elapsed, 5000);
-      else assert.ok(elapsed >= 8000 && elapsed <= 15000, `gap ${elapsed}`);
+      else assert.ok(elapsed >= 5000 && elapsed <= 9000, `gap ${elapsed}`);
     }
   }
 });
@@ -85,11 +85,11 @@ test('zero candidates reset the wait, and loss of the current speaker hides with
   const { schedule, message } = started();
   const remaining = candidates.filter(actor => actor.id !== message.speakerId);
   assert.equal(schedule.step(3200, { ...live, candidates: remaining }), null);
-  assert.equal(drive(schedule, 3400, 11000, { ...live, candidates: remaining }), null);
-  assert.equal(schedule.step(11200, { ...live, candidates: remaining }).speakerId, remaining[0].id);
-  assert.equal(schedule.step(11400, { ...live, candidates: [] }), null);
-  assert.equal(drive(schedule, 11600, 14400), null);
-  assert.ok(schedule.step(14600, live));
+  assert.equal(drive(schedule, 3400, 8000, { ...live, candidates: remaining }), null);
+  assert.equal(schedule.step(8200, { ...live, candidates: remaining }).speakerId, remaining[0].id);
+  assert.equal(schedule.step(8400, { ...live, candidates: [] }), null);
+  assert.equal(drive(schedule, 8600, 11400), null);
+  assert.ok(schedule.step(11600, live));
   const empty = createChatSchedule({ random: () => 0 });
   assert.equal(drive(empty, 0, 60000, { ...live, candidates: [] }), null);
 });

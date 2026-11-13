@@ -21,6 +21,7 @@ test('atomic idempotency, persistence, channel and identity isolation, leaderboa
   await assert.rejects(store.get({...alice,channel:'production'}),e=>e.status===401);
   assert.equal((await store.get({...alice,sub:'2'})).revision,0);
   const board=await store.leaderboard('days');assert.equal(board.trusted,true);assert.equal(board.entries.length,2);assert.equal(JSON.stringify(board).includes('trusted.test'),false);
+  assert.deepEqual(board.entries.map(e=>e.userId).sort(),[1,2]);assert.ok(board.entries.every(e=>!Object.hasOwn(e,'identity')));
   await assert.rejects(store.leaderboard('cash'),e=>e.status===400);
   assert.throws(()=>createStore(path,'production'),/mix database channels/);
   store.close();store=createStore(path,'sandbox');assert.deepEqual(await store.act(alice,input()),first);

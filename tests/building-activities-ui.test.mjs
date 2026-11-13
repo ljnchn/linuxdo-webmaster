@@ -11,7 +11,7 @@ const functionLine = name => {
   return source;
 };
 const actSource = app.slice(app.indexOf(' async function act(action,message)'), app.indexOf('\n async function setClockActive'));
-const ready = patch => ({ ...engine.createChallengeGame('分享小站', 123, '一起进步'), members: 20, patrons: 1, ...patch });
+const ready = patch => ({ ...engine.createChallengeGame('分享小站', 123, '一起进步'), members: 20, patrons: 1, communityLevel: 5, ...patch });
 const cards = html => [...html.matchAll(/<button\b[^>]*data-activity="([^"]+)"[^>]*>[\s\S]*?<\/button>/g)].map(match => ({ id: match[1], html: match[0], disabled: /<button\b[^>]*\sdisabled(?:\s|>)/.test(match[0]) }));
 const show = (state, building) => {
   const opened = [];
@@ -34,7 +34,7 @@ function harness(initial = ready(), transport = null) {
       restore(value){this.progressMs=value;clockCalls.push(['restore',value]);},
       setActive(value){this.active=value;clockCalls.push(['active',value]);}};
     const environment={},storage={setItem(key,value){writes.push({key,value});}},ownsSave=()=>owner,
-      notify=(...args)=>messages.push(args),redraw=()=>redraws++,esc=value=>String(value),icon=()=>'';
+      notify=(...args)=>messages.push(args),redraw=()=>redraws++,esc=value=>String(value),icon=()=>'',logText=value=>value;
     const document={activeElement:{isConnected:true,focus(){}}},dialog={open:false,showModal(){this.open=true;},close(){this.open=false;}},
       setClockActive=async value=>clock.setActive(value),isRunning=()=>started&&!state.gameOver&&!dialog.open;
     const $=selector=>{

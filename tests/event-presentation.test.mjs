@@ -34,7 +34,7 @@ test('successful event choices notify their actual event outcome; rejected choic
     assert.equal(result.messages.length,1);
     assert.ok(result.messages[0].includes(communityText(definition.title)));
     assert.ok(result.messages[0].includes(option.label));
-    assert.ok(result.messages[0].includes('已完成'));
+    assert.doesNotMatch(result.messages[0],/注册状态、名额、容量及身份上限限制/);
     const rejected=await run(initial,{...action,optionId:'missing'},applyAction,validateState,communityText);
     assert.equal(rejected.success,false);
     assert.deepEqual(rejected.state,initial);

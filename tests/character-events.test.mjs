@@ -65,7 +65,7 @@ for(const def of additions){
       assert.equal(next.gameOver,false);assert.equal(next.serverDaysRemaining,state.serverDaysRemaining);
       assert.equal(next.events.length,0);assert.equal(next.revision,state.revision+1);
       assert.equal(next.rngState,state.rngState);assert.equal(validateState(next),true);
-      assert.equal(next.logs.at(-1).text,`${def.title}：${op.label}，已完成。`);
+      assert.equal(next.logs.at(-1).text,`${def.title}：${op.label}。`);
       assert.deepEqual(state,original);
       assert.throws(()=>applyAction(next,{type:'resolve',eventId:state.events[0].id,optionId:op.id}),/不存在/);
       if(op.cost){

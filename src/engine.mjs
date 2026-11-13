@@ -1,4 +1,6 @@
 /** Shared, deterministic prototype rules. Ticks are supplied by the online clock, never wall time. */
+import {COMMUNITY_LEVELS,communityProgress,PROJECT_DAYS,SPECIALTIES,AWARDS,lifeOf,buildingMastery,residentStatus,activityBenefits,validLife} from './community-life.mjs';
+export {COMMUNITY_LEVELS,communityProgress} from './community-life.mjs';
 export const RULES = Object.freeze({
   version: 4, prototype: true, periodsPerDay: 3, daysPerMonth: 30, secondsPerPeriod: 20,
   speeds: Object.freeze([1, 2, 4]), initialCash: 1000, initialMembers: 0,
@@ -25,15 +27,16 @@ export const STRATEGIES = Object.freeze([
   { id: 'content', name: '深耕内容', description: '增长较慢，内容每天增加 3 点。' },
   { id: 'care', name: '友善维护', challengeOnly: true, description: '挑战模式：氛围每天 +2、内容 -2，增长减半。' },
 ].map(Object.freeze));
+export const BUILDING_UNLOCKS = Object.freeze({benefits:2,resources:3});
 // Fictional, deterministic building activities. These prototype values are not
 // real offers, paid prize draws, sponsorships, or user-confirmed final balance.
 export const BUILDING_ACTIVITIES = Object.freeze([
-  {id:'benefits-free-list',building:'benefits',name:'整理限免清单',description:'整理游戏内的虚构限免清单，分享省星币的小发现。',cost:0,rewards:{members:0,mood:3,content:2}},
-  {id:'benefits-badge-draw',building:'benefits',name:'社区徽章抽奖',description:'使用游戏星币筹办免费的虚构徽章活动；氛围固定提升，尝试吸引 2 位佬友，无真实奖品或付费参与。',cost:15,rewards:{members:2,mood:7,content:0}},
-  {id:'resources-software',building:'resources',name:'软件分享',description:'分享游戏内的虚构软件使用心得，积累社区内容。',cost:0,rewards:{members:0,mood:0,content:4}},
-  {id:'resources-repository',building:'resources',name:'开源仓库共读',description:'用游戏星币筹备一次虚构开源项目共读，交流代码思路。',cost:10,rewards:{members:0,mood:1,content:7}},
-  {id:'resources-course',building:'resources',name:'视频课程共学',description:'用游戏星币组织虚构视频课程共学，一起整理学习笔记。',cost:15,rewards:{members:0,mood:3,content:6}},
-  {id:'resources-book',building:'resources',name:'书籍共读',description:'围绕虚构书目交流阅读心得，把收获留在社区。',cost:0,rewards:{members:0,mood:2,content:3}},
+  {id:'benefits-free-list',building:'benefits',requiredLevel:2,name:'整理限免清单',description:'整理游戏内的虚构限免清单，分享省星币的小发现。',cost:0,rewards:{members:0,mood:3,content:2}},
+  {id:'benefits-badge-draw',building:'benefits',requiredLevel:4,name:'社区徽章抽奖',description:'使用游戏星币筹办免费的虚构徽章活动；氛围固定提升，尝试吸引 2 位佬友，无真实奖品或付费参与。',cost:15,rewards:{members:2,mood:7,content:0}},
+  {id:'resources-software',building:'resources',requiredLevel:3,name:'软件分享',description:'分享游戏内的虚构软件使用心得，积累社区内容。',cost:0,rewards:{members:0,mood:0,content:4}},
+  {id:'resources-repository',building:'resources',requiredLevel:4,name:'开源仓库共读',description:'用游戏星币筹备一次虚构开源项目共读，交流代码思路。',cost:10,rewards:{members:0,mood:1,content:7}},
+  {id:'resources-course',building:'resources',requiredLevel:5,name:'视频课程共学',description:'用游戏星币组织虚构视频课程共学，一起整理学习笔记。',cost:15,rewards:{members:0,mood:3,content:6}},
+  {id:'resources-book',building:'resources',requiredLevel:3,name:'书籍共读',description:'围绕虚构书目交流阅读心得，把收获留在社区。',cost:0,rewards:{members:0,mood:2,content:3}},
 ].map(activity=>Object.freeze({...activity,cooldownDays:RULES.buildingActivityCooldownDays,rewards:Object.freeze(activity.rewards)})));
 const ACTIVITY_BUILDINGS = Object.freeze({benefits:'福利羊毛',resources:'资源荟萃'});
 const option = (id, label, description, cost, members=0, mood=0, content=0, cash=0, patrons=0) => ({id,label,description,cost,rewards:{members,mood,content,cash,patrons}});
@@ -203,15 +206,21 @@ function activityAdmissions(s,count) {
  * of canRun; blockedReason explains why an activity itself cannot run. */
 export function activityStatus(s,building) {
   if(!Object.hasOwn(ACTIVITY_BUILDINGS,building))throw new Error('请选择有效的活动建筑。');
+  const progress=communityProgress(s),requiredLevel=BUILDING_UNLOCKS[building],requiredMembers=COMMUNITY_LEVELS[requiredLevel-1].members;
+  const unlocked=progress.level>=requiredLevel;
   const lastUsedDay=s.buildingActivities?.[building]?.day??null;
   const nextAvailableDay=lastUsedDay===null?null:lastUsedDay+RULES.buildingActivityCooldownDays;
   const remainingDays=nextAvailableDay===null?0:Math.max(0,nextAvailableDay-s.day);
-  const blockedReason=s.gameOver?'服务器已到期，本局结束。请重新开始。':s.members<1?'至少需要 1 位佬友才能开展活动。':remainingDays>0?`${ACTIVITY_BUILDINGS[building]}还需等待 ${remainingDays} 个游戏日，第 ${nextAvailableDay+1} 天可再次开展活动。`:null;
+  const project=lifeOf(s).projects[building],duration=project?PROJECT_DAYS[project.activityId]:0;
+  const ongoing=project?{...project,name:BUILDING_ACTIVITIES.find(a=>a.id===project.activityId).name,stage:s.gameOver?'已中止':s.day===project.startedDay?'筹备中':'举办中',remainingDays:Math.max(0,project.startedDay+duration-s.day),duration}:null;
+  const blockedReason=s.gameOver?'服务器已到期，本局结束。请重新开始。':!unlocked?`${ACTIVITY_BUILDINGS[building]}在社区 Lv.${requiredLevel} 开放，需要达到 ${requiredMembers} 位佬友。`:s.members<1?'至少需要 1 位佬友才能开展活动。':remainingDays>0?`${ACTIVITY_BUILDINGS[building]}还需等待 ${remainingDays} 个游戏日，第 ${nextAvailableDay+1} 天可再次开展活动。`:null;
   const activities=BUILDING_ACTIVITIES.filter(v=>v.building===building).map(activity=>{
-    const reason=blockedReason||(s.cash<activity.cost?`游戏星币不足：需要 ${activity.cost}，当前 ${s.cash}。`:null);
-    return {...activity,canRun:!reason,blockedReason:reason,...activityAdmissions(s,activity.rewards.members)};
+    const activityUnlocked=progress.level>=activity.requiredLevel;
+    const benefit=activityBenefits(s,activity);
+    const reason=blockedReason||(!activityUnlocked?`社区 Lv.${activity.requiredLevel} 解锁，需要达到 ${COMMUNITY_LEVELS[activity.requiredLevel-1].members} 位佬友。`:s.cash<benefit.cost?`游戏星币不足：需要 ${benefit.cost}，当前 ${s.cash}。`:null);
+    return {...activity,...benefit,durationDays:PROJECT_DAYS[activity.id]||0,unlocked:activityUnlocked,canRun:!reason,blockedReason:reason,...activityAdmissions(s,benefit.rewards.members)};
   });
-  return {building,cooldownDays:RULES.buildingActivityCooldownDays,lastUsedDay,nextAvailableDay,remainingDays,canRun:activities.some(v=>v.canRun),blockedReason,activities};
+  return {building,level:progress.level,unlocked,requiredLevel,requiredMembers,project:ongoing,mastery:buildingMastery(s,building),cooldownDays:RULES.buildingActivityCooldownDays,lastUsedDay,nextAvailableDay,remainingDays,canRun:activities.some(v=>v.canRun),blockedReason,activities};
 }
 function expire(s) {
   const previous=s.pendingSponsors.length;
@@ -234,6 +243,8 @@ function validateVersion(s,legacy) {
     if(!record(s)||s.version!==(legacy?3:RULES.version)||!int(s.revision)||!int(s.day,0,MAX_DAY)||!int(s.timeSlot,0,2)||!str(s.name,24)||s.name!==s.name.trim()||!int(s.cash)||!int(s.members,0,1500)||!int(s.patrons,0,patronCap(s))||!int(s.mood,0,100)||!int(s.content,0,100)||!int(s.seed,1,4294967295)||!int(s.rngState,1,4294967295)) return false;
     if(Object.hasOwn(s,'difficulty')&&s.difficulty!=='challenge')return false;
     if(Object.hasOwn(s,'slogan')&&!validSlogan(s.slogan))return false;
+    if(Object.hasOwn(s,'communityLevel')&&!int(s.communityLevel,1,COMMUNITY_LEVELS.length))return false;
+    if(!validLife(s,BUILDING_ACTIVITIES))return false;
     // Missing/null ledgers preserve old v4/v3 snapshots without adding fields.
     if(Object.hasOwn(s,'buildingActivities')&&s.buildingActivities!==null){
       if(!record(s.buildingActivities)||!Object.entries(s.buildingActivities).every(([building,entry])=>
@@ -277,7 +288,7 @@ export function summarize(s) {
   const server=serverFor(s);
   const challenge=isChallenge(s),pressureHints=[];
   if(challenge){
-    pressureHints.push(`每日维护 ${maintenanceCost(s)} 星币（基础 ${CHALLENGE.maintenanceBase[s.serverId]} + 佬友数 × ${CHALLENGE.maintenancePerMember[s.serverId]} 向下取整），新增佬友次日起计费。`);
+    pressureHints.push(`维护 ${maintenanceCost(s)} 星币/天，新增佬友次日起计费。`);
     if(s.cash<maintenanceCost(s)*7)pressureHints.push('余额不足七天维护费；及时领取赞助，减少付费活动或换用更小服务器。');
     if(s.mood<45)pressureHints.push('氛围偏低：切换友善维护，及时调解争论。');
     if(s.content<45)pressureHints.push('内容偏低：切换深耕内容，处理文章和世界事件。');
@@ -285,6 +296,27 @@ export function summarize(s) {
     if(Math.min(s.mood,s.content)<CHALLENGE.lowQuality)pressureHints.push('氛围或内容低于 35，每天流失约 2% 佬友，极低时 4%。');
   }
   return {difficulty:challenge?'challenge':'classic',maintenanceCost:maintenanceCost(s),maintenancePerMember:challenge?CHALLENGE.maintenancePerMember[s.serverId]:0,maintenanceBase:challenge?CHALLENGE.maintenanceBase[s.serverId]:0,pressureHints,strategyEffects:challenge?CHALLENGE.strategies[s.strategy]:null,server,rent:server.rent,monthlyRent:server.rent,capacity:server.capacity,load:s.members/server.capacity,runway:s.serverDaysRemaining,serverDaysRemaining:s.serverDaysRemaining,serverPeriodsRemainder:0,serverPeriodsRemaining:s.serverPeriodsRemaining,timeSlot:s.timeSlot,gameOver:s.gameOver,nextSponsorDay:(Math.floor(s.day/7)+1)*7,sponsorTotal:s.pendingSponsors.reduce((n,v)=>n+v.amount,0),patronCap:patronCap(s),elapsedPeriods:s.day*3+s.timeSlot,registration:s.registration,inviteRemaining:Math.max(0,RULES.inviteDailyLimit-s.admissionsToday),score:s.day*3+s.timeSlot};
+}
+export function operatingForecast(s,serverId=s.serverId){
+ const server=SERVERS.find(v=>v.id===serverId);
+ if(!server)throw Error('请选择有效的服务器。');
+ const maintenance=maintenanceCost({...s,serverId}),rent=server.rent/RULES.daysPerMonth,income=s.patrons*RULES.sponsorAmount/RULES.sponsorCycleDays;
+ return {maintenance,rent,income,net:income-maintenance-rent,nextSponsorDay:(Math.floor(s.day/RULES.sponsorCycleDays)+1)*RULES.sponsorCycleDays,pending:s.pendingSponsors.reduce((n,v)=>n+v.amount,0)};
+}
+function completeActivity(s,definition){
+ const rewards=activityBenefits(s,definition).rewards,accepted=admit(s,rewards.members);
+ s.mood=clamp(s.mood+rewards.mood,0,100);s.content=clamp(s.content+rewards.content,0,100);
+ s.life??=lifeOf(s);s.life.completed[definition.id]=Math.min(MAX,(s.life.completed[definition.id]||0)+1);
+ const admission=rewards.members>0?`，实际入站 ${accepted} 位佬友`:'';
+ log(s,`${definition.name}已完成${admission}。`,'success');
+}
+function settleLife(s){
+ for(const [building,project] of Object.entries(lifeOf(s).projects))if(s.day>=project.startedDay+PROJECT_DAYS[project.activityId]){
+  completeActivity(s,BUILDING_ACTIVITIES.find(a=>a.id===project.activityId));delete s.life.projects[building];
+ }
+ if(s.day%30===0)for(const award of AWARDS)if(!lifeOf(s).awards.includes(award.id)&&s.members>=award.members&&s.mood>=award.mood&&s.content>=award.content){
+  s.life??=lifeOf(s);s.life.awards.push(award.id);log(s,`月度评选：获得「${award.name}」。`,'success');
+ }
 }
 function addEvent(s,def) {
   if(s.events.length>=RULES.maxEvents)return;
@@ -304,9 +336,12 @@ function settleDay(s) {
   }
   const quality=(s.mood+s.content)/200;
   const growth=Math.max(1,Math.floor((2+random(s)*4)*(.65+quality)*(challenge?CHALLENGE.strategies[s.strategy].growth:(s.strategy==='growth'?1.4:s.strategy==='content'?.7:1))*(challenge?(.35+.65*quality):1)));
-  const admitted=admit(s,growth);
+  const specialty=lifeOf(s).specialty;
+  const admitted=admit(s,growth+(specialty==='welcome'?1:0));
   s.mood=clamp(s.mood+(challenge?CHALLENGE.strategies[s.strategy].mood:(s.strategy==='growth'?-1:1)),0,100);
   s.content=clamp(s.content+(challenge?CHALLENGE.strategies[s.strategy].content:(s.strategy==='content'?3:s.strategy==='growth'?-1:1)),0,100);
+  if(specialty==='knowledge')s.content=clamp(s.content+1,0,100);
+  if(specialty==='care')s.mood=clamp(s.mood+1,0,100);
   capPatrons(s);
   // Classic: a new arrival may be a patron. Challenge: an existing member may also
   // become a patron, so a full server cannot permanently lock out sponsorship.
@@ -328,6 +363,7 @@ export function applyAction(state,action) {
   if(!validateState(state))throw new Error('存档格式无效。');
   if(!record(action)||typeof action.type!=='string')throw new Error('操作格式无效。');
   const s=refreshEventCopy(clone(state));
+  const previousLevel=communityProgress(s).level;
   if(s.revision>=MAX||s.day>=MAX_DAY)throw new Error('已达到存档进度上限。');
   if(s.gameOver&&action.type!=='restart')throw new Error('服务器已到期，本局结束。请重新开始。');
   switch(action.type) {
@@ -365,7 +401,7 @@ export function applyAction(state,action) {
         if(s.nextEventDay<=s.day)s.nextEventDay=s.day+2;
         if(s.nextWorldEventDay<=s.day)s.nextWorldEventDay+=RULES.worldCycleDays;
         log(s,'服务器租期已到期，本局结束。','warning');
-      }else if(s.timeSlot===0)settleDay(s);
+      }else if(s.timeSlot===0){settleDay(s);settleLife(s);}
       break;
     }
     case 'claim': {
@@ -381,13 +417,30 @@ export function applyAction(state,action) {
       if(!definition)throw new Error('请选择有效的建筑活动。');
       const status=activityStatus(s,definition.building).activities.find(v=>v.id===definition.id);
       if(!status.canRun)throw new Error(status.blockedReason);
-      s.cash-=definition.cost;
-      const accepted=admit(s,definition.rewards.members);
-      s.mood=clamp(s.mood+definition.rewards.mood,0,100);
-      s.content=clamp(s.content+definition.rewards.content,0,100);
+      s.cash-=status.cost;
       s.buildingActivities={...s.buildingActivities,[definition.building]:{activityId:definition.id,day:s.day}};
-      const admission=definition.rewards.members>0?`，实际入站 ${accepted} 位佬友${status.admissionReasons.length?`（${status.admissionReasons.map(v=>v.text).join('；')}）`:''}`:'';
-      log(s,`${ACTIVITY_BUILDINGS[definition.building]}：${definition.name}，已完成${admission}。`,'success');break;
+      if(PROJECT_DAYS[definition.id]){
+       s.life??=lifeOf(s);s.life.projects[definition.building]={activityId:definition.id,startedDay:s.day};
+       log(s,`${definition.name}开始筹备，${PROJECT_DAYS[definition.id]} 天后完成。`,'info');
+      }else completeActivity(s,definition);
+      break;
+    }
+    case 'story': {
+      if(Object.keys(action).sort().join()!=='optionId,residentId,type'||!['he','juan','ce'].includes(action.residentId))throw Error('请选择有效的佬友故事。');
+      const story=residentStatus(s,action.residentId);
+      if(!story.canAct)throw Error(story.complete?'这段故事已完成。':!story.unlocked?`社区 Lv.${story.level} 相遇。`:`${story.wait} 天后再来看看。`);
+      const option=story.options.find(v=>v.id===action.optionId);
+      if(!option)throw Error('请选择当前故事的选项。');
+      if(s.cash<option.cost)throw Error('星币不足。');
+      s.cash-=option.cost;s.mood=clamp(s.mood+option.rewards.mood,0,100);s.content=clamp(s.content+option.rewards.content,0,100);const accepted=admit(s,option.rewards.members);
+      s.life??=lifeOf(s);const choices=[...(s.life.stories[story.id]?.choices??[]),option.id];s.life.stories[story.id]={choices,day:s.day};
+      log(s,`${story.name}：${option.label}${choices.length===3?'，成为社区骨干':''}${option.rewards.members?`，实际入站 ${accepted} 位佬友`:''}。`,'success');break;
+    }
+    case 'specialty': {
+      if(Object.keys(action).sort().join()!=='specialtyId,type'||!SPECIALTIES.some(v=>v.id===action.specialtyId))throw Error('请选择有效的社区特色。');
+      if(communityProgress(s).level<5)throw Error('社区 Lv.5 开放特色选择。');
+      if(lifeOf(s).specialty)throw Error('本局社区特色已确定。');
+      s.life??=lifeOf(s);s.life.specialty=action.specialtyId;log(s,`社区特色：${SPECIALTIES.find(v=>v.id===action.specialtyId).name}。`,'success');break;
     }
     case 'resolve': {
       const event=s.events.find(v=>v.id===action.eventId);
@@ -407,7 +460,7 @@ export function applyAction(state,action) {
       else if(r.members<0)s.members=Math.max(0,s.members+r.members);
       s.mood=clamp(s.mood+r.mood,0,100);s.content=clamp(s.content+r.content,0,100);capPatrons(s);
       s.events=s.events.filter(v=>v.id!==event.id);
-      log(s,`${event.title}：${op.label}，已完成${r.members>0?`，实际入站 ${accepted} 位佬友（注册状态、名额、容量及身份上限限制）`:''}。`,'success');break;
+      log(s,`${event.title}：${op.label}${r.members>0?`，实际入站 ${accepted} 位佬友`:''}。`,'success');break;
     }
     case 'registration':
       if(!REGISTRATIONS.some(v=>v.id===action.value))throw new Error('运营状态无效。');
@@ -420,6 +473,7 @@ export function applyAction(state,action) {
     default:throw new Error('未知操作。');
   }
   s.serverPeriodsRemaining=s.serverDaysRemaining*RULES.periodsPerDay;
+  s.communityLevel=Math.max(previousLevel,communityProgress(s).level);
   s.revision++;
   if(!validateState(s))throw new Error('操作超出存档允许范围。');
   return s;

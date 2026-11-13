@@ -2,6 +2,7 @@ import { getSDK } from './vendor/index.mjs';
 import { createPlatformStorage } from './storage.mjs';
 
 export function createPlatformTransport(sdk) {
+  const profiles = new Map();
   async function request(endpoint, options) {
     const response = await sdk.http.request(endpoint, { timeoutMs: 15_000, ...options });
     if (response.status >= 200 && response.status < 300) return response.body;
@@ -13,6 +14,11 @@ export function createPlatformTransport(sdk) {
     getState: () => request('getState'),
     sendAction: action => request('sendAction', { json: action }),
     getLeaderboard: (sort = 'members') => request('getLeaderboard', { query: { sort } }),
+    getUserProfile(userId) {
+      if (!sdk.permissions.has('user.lookup')) return Promise.reject(new Error('用户资料暂不可用'));
+      if (!profiles.has(userId)) profiles.set(userId, sdk.user.getById(userId, { timeoutMs: 8000 }).catch(error => { profiles.delete(userId); throw error; }));
+      return profiles.get(userId);
+    },
   };
 }
 

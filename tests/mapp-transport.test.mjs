@@ -25,6 +25,7 @@ test('one manifest serves sandbox and production with the configured signed back
   assert.equal(configureManifest(template).endpoints.getState.url, 'https://linux-do-webmaster.rmb.run/api/state');
   const result = configureManifest(template, { publicOrigin: 'https://game.ljnchn.com' });
   assert.deepEqual(result.permissions.slice(-2), ['user.read', 'network.request']);
+  assert.ok(result.permissions.includes('user.lookup'));
   assert.deepEqual(result.endpoints, {
     getState: { url: 'https://game.ljnchn.com/api/state', method: 'GET', auth: 'platform' },
     sendAction: { url: 'https://game.ljnchn.com/api/actions', method: 'POST', auth: 'platform' },
@@ -34,4 +35,18 @@ test('one manifest serves sandbox and production with the configured signed back
     assert.throws(() => configureManifest(template, { publicOrigin }));
   }
   assert.deepEqual(template.endpoints, {});
+});
+
+test('profile lookup uses SDK permission, timeouts and session cache, and retries failed requests',async()=>{
+ const calls=[];let fail=true;
+ const sdk={permissions:{has:p=>p==='user.lookup'},user:{getById:async(id,options)=>{calls.push([id,options]);if(fail)throw Error('unavailable');return {id,username:'neo',name:'佬友',initials:'佬',avatarUrl:'blob:session'};}}};
+ const transport=createPlatformTransport(sdk);
+ await assert.rejects(transport.getUserProfile(1),/unavailable/);
+ fail=false;
+ const [a,b]=await Promise.all([transport.getUserProfile(1),transport.getUserProfile(1)]);
+ assert.equal(a,b);assert.equal(a.avatarUrl,'blob:session');
+ assert.deepEqual(calls,[[1,{timeoutMs:8000}],[1,{timeoutMs:8000}]]);
+ sdk.permissions.has=()=>false;
+ await assert.rejects(transport.getUserProfile(2),/暂不可用/);
+ assert.equal(calls.length,2);
 });

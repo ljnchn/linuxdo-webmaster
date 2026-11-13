@@ -6,6 +6,7 @@ import {join} from 'node:path';
 import {DatabaseSync} from 'node:sqlite';
 import {createStore} from '../server/store.mjs';
 import {identityKey} from '../server/protocol.mjs';
+import {EVENTS} from '../src/engine.mjs';
 
 const alice={iss:'https://trusted.test',sub:'alice',channel:'sandbox'};
 const action=(revision,key,action)=>({revision,idempotencyKey:key,action});
@@ -59,13 +60,14 @@ test('new threshold unlocks share action commit and rejected actions leave no un
  const db=new DatabaseSync(path);
  try{
   const fresh=await store.get(alice);
-  db.prepare('UPDATE players SET state=?,members=? WHERE identity=?').run(JSON.stringify({...fresh.state,members:8}),8,identityKey(alice));
-  const request=action(0,'achievement-first-member',{type:'activity',activityId:'benefits-badge-draw'});
+  const welcome=EVENTS.find(event=>event.id==='welcome');
+  db.prepare('UPDATE players SET state=?,members=? WHERE identity=?').run(JSON.stringify({...fresh.state,members:8,day:1,nextEventDay:2,events:[{id:'event-character-1',kind:welcome.id,category:welcome.category,createdDay:1,expiresDay:7,title:welcome.title,description:welcome.description,options:welcome.options}]}),8,identityKey(alice));
+  const request=action(0,'achievement-first-member',{type:'resolve',eventId:'event-character-1',optionId:'greet'});
   const result=await store.act(alice,request);
   assert.equal(result.state.members,10);
   assert.deepEqual(result.achievements,[{id:'first-member',unlockedAt:777},{id:'ten-members',unlockedAt:777}]);
   assert.deepEqual(await store.act(alice,request),result);
-  await assert.rejects(store.act(alice,action(1,'achievement-reject-one',{type:'activity',activityId:'benefits-badge-draw'})),error=>error.code==='ACTION_REJECTED');
+  await assert.rejects(store.act(alice,action(1,'achievement-reject-one',request.action)),error=>error.code==='ACTION_REJECTED');
   assert.equal(db.prepare('SELECT COUNT(*) AS count FROM operations').get().count,1);
   assert.equal(db.prepare('SELECT COUNT(*) AS count FROM player_achievements').get().count,2);
   assert.equal((await store.get(alice)).revision,1);

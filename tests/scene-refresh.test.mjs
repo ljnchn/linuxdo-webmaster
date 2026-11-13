@@ -20,7 +20,7 @@ function sceneHarness() {
   const draw = renderFunction('$', 'summarize', 'STRATEGIES', `
     let state,started=true,eventPanelMarkup='';const speed=1,storageWarning='新版试玩',world={redraw(){}},
       remaining=()=>state.serverDaysRemaining+' 天',isRunning=()=>!state.gameOver,fmt=String,logText=String,icon=()=>'',
-      renderQuality=()=>{},renderManagement=()=>{},renderClock=()=>{},updateChat=()=>{};
+      renderQuality=()=>{},renderManagement=()=>{},renderBuildingAccess=()=>{},renderClock=()=>{},updateChat=()=>{},lifeView={update(){}};
     ${line('renderEvent')}${line('redraw')}
     return (next,active=true)=>{state=next;started=active;redraw();};
   `)(query, summarize, STRATEGIES);
@@ -61,7 +61,7 @@ test('community board opens all current events, including mixed world and charac
   assert.deepEqual(calls, [[]], 'board routing resets any previous individual selection');
   opened.length = 0;
   show({ ...state, events: [] }, (...args) => opened.push(args), () => assert.fail('empty board must not fabricate an event'));
-  assert.match(opened[0][1], /今天暂时风平浪静/);
+  assert.match(opened[0][1], /暂无待办事件/);
   assert.doesNotMatch(opened[0][1], /data-open-event|data-event=/);
 });
 

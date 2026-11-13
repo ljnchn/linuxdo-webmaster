@@ -8,8 +8,9 @@ import {createGame,createChallengeGame,applyAction,activityStatus,BUILDING_ACTIV
 import {createRunBackups,validSave} from '../src/run-backups.mjs';
 import {validateInput,transition,identityKey} from '../server/protocol.mjs';
 import {createStore} from '../server/store.mjs';
+import {PROJECT_DAYS} from '../src/community-life.mjs';
 
-const ready=(patch={})=>({...createGame('活动测试',12345),members:20,patrons:1,...patch});
+const ready=(patch={})=>({...createGame('活动测试',12345),members:20,patrons:1,communityLevel:5,...patch});
 const run=(s,activityId)=>applyAction(s,{type:'activity',activityId});
 const tick=s=>applyAction(s,{type:'tick',periods:1});
 const until=(s,day)=>{while(s.day<day&&!s.gameOver)s=tick(s);return s;};
@@ -32,7 +33,7 @@ test('building activity catalog has six canonical fictional choices and shared p
  assert.equal(RULES.buildingActivityCooldownDays,7);
  for(const [id,building,name,cost,members,mood,content] of expected){
   const def=BUILDING_ACTIVITIES.find(v=>v.id===id);
-  assert.deepEqual({...def,description:undefined},{id,building,name,description:undefined,cost,rewards:{members,mood,content},cooldownDays:7});
+  assert.deepEqual({...def,description:undefined},{id,building,name,description:undefined,requiredLevel:{'benefits-free-list':2,'benefits-badge-draw':4,'resources-software':3,'resources-repository':4,'resources-course':5,'resources-book':3}[id],cost,rewards:{members,mood,content},cooldownDays:7});
   assert.match(def.description,/虚构/);
   assert.doesNotMatch(def.description,/https?:\/\//);
   assert.ok(Object.isFrozen(def)&&Object.isFrozen(def.rewards));
@@ -43,19 +44,20 @@ test('building activity catalog has six canonical fictional choices and shared p
 });
 
 for(const [id,building,,cost,members,mood,content] of expected){
- test(`${id} applies precise rewards once in classic and challenge modes, without RNG or sponsorship`,()=>{
+ test(`${id} charges once and either starts a project or grants immediate rewards, without advancing time`,()=>{
   for(const mode of ['classic','challenge']){
    const s=ready(mode==='challenge'?{...createChallengeGame('活动测试',12345,'一起分享'),members:20,patrons:1}:{}),before=snapshot(s);
    const status=selected(s,id),n=run(s,id);
    assert.equal(status.canRun,true);assert.equal(status.blockedReason,null);assert.equal(status.expectedMembers,members);
-   assert.equal(n.cash,s.cash-cost);assert.equal(n.members,s.members+members);assert.equal(n.admissionsToday,s.admissionsToday+members);
-   assert.equal(n.mood,s.mood+mood);assert.equal(n.content,s.content+content);assert.equal(n.rngState,s.rngState);
+   const immediate=!PROJECT_DAYS[id];
+   assert.equal(n.cash,s.cash-cost);assert.equal(n.members,s.members+(immediate?members:0));assert.equal(n.admissionsToday,s.admissionsToday+(immediate?members:0));
+   assert.equal(n.mood,s.mood+(immediate?mood:0));assert.equal(n.content,s.content+(immediate?content:0));assert.equal(n.rngState,s.rngState);
    assert.equal(n.patrons,s.patrons);assert.deepEqual(n.pendingSponsors,s.pendingSponsors);assert.deepEqual(n.events,s.events);
    assert.equal(n.day,s.day);assert.equal(n.timeSlot,s.timeSlot);assert.equal(n.serverDaysRemaining,s.serverDaysRemaining);assert.equal(n.serverPeriodsRemaining,s.serverPeriodsRemaining);
    assert.equal(n.revision,s.revision+1);assert.equal(validateState(n),true);assert.equal(snapshot(s),before);
    assert.deepEqual(n,run(s,id));assert.deepEqual(n.buildingActivities,{[building]:{activityId:id,day:s.day}});
-   assert.equal(n.logs.length,s.logs.length+1);assert.match(n.logs.at(-1).text,/已完成/);
-   if(members)assert.match(n.logs.at(-1).text,/实际入站 2 位佬友/);else assert.doesNotMatch(n.logs.at(-1).text,/入站/);
+   assert.equal(n.logs.length,s.logs.length+1);assert.match(n.logs.at(-1).text,immediate?/已完成/:/开始筹备/);
+   if(immediate)assert.equal(n.life.completed[id],1);else assert.deepEqual(n.life.projects[building],{activityId:id,startedDay:s.day});
    assert.throws(()=>run(n,id),/等待 7 个游戏日/);
   }
  });
@@ -92,7 +94,7 @@ test('cooldown uses seven rolling game days, not phases, wall time, or unrelated
 test('fees are exact, free alternatives work at zero cash, and capped rewards do not overflow',()=>{
  for(const def of BUILDING_ACTIVITIES){
   const s=ready({cash:def.cost,mood:99,content:99}),n=run(s,def.id);
-  assert.equal(n.cash,0);assert.equal(n.mood,Math.min(100,99+def.rewards.mood));assert.equal(n.content,Math.min(100,99+def.rewards.content));
+  assert.equal(n.cash,0);assert.equal(n.mood,PROJECT_DAYS[def.id]?99:Math.min(100,99+def.rewards.mood));assert.equal(n.content,PROJECT_DAYS[def.id]?99:Math.min(100,99+def.rewards.content));
   if(def.cost){
    const poor=ready({cash:def.cost-1}),copy=snapshot(poor),status=selected(poor,def.id);
    assert.equal(status.canRun,false);assert.match(status.blockedReason,/游戏星币不足/);
@@ -114,7 +116,7 @@ test('zero members and expired runs reject all choices without any state or revi
  assert.equal(run(ready({members:1,patrons:0}),free).members,1);
 });
 
-test('draw preview and execution share registration, invitation quota and capacity gates with concrete reasons',()=>{
+test('draw preview reports current admission gates but a new project does not grant or reserve members',()=>{
  const cases=[
   [{registration:'open'},2,[],null],
   [{registration:'closed'},0,['registration_closed'],/关闭注册/],
@@ -129,21 +131,22 @@ test('draw preview and execution share registration, invitation quota and capaci
  for(const [patch,accepted,codes,reason] of cases){
   const s=ready(patch),before=snapshot(s),status=selected(s,draw),n=run(s,draw);
   assert.equal(status.canRun,true);assert.equal(status.expectedMembers,accepted);assert.deepEqual(status.admissionReasons.map(v=>v.code),codes);
-  assert.equal(n.members-s.members,accepted);assert.equal(n.admissionsToday-s.admissionsToday,accepted);assert.equal(n.patrons,s.patrons);
-  assert.equal(n.cash,s.cash-15);assert.equal(n.mood,s.mood+7);assert.equal(n.rngState,s.rngState);assert.equal(snapshot(s),before);
-  assert.match(n.logs.at(-1).text,new RegExp(`实际入站 ${accepted} 位佬友`));
-  if(reason){assert.match(status.admissionNote,reason);assert.match(n.logs.at(-1).text,reason);}
+  assert.equal(n.members,s.members);assert.equal(n.admissionsToday,s.admissionsToday);assert.equal(n.patrons,s.patrons);
+  assert.equal(n.cash,s.cash-15);assert.equal(n.mood,s.mood);assert.equal(n.rngState,s.rngState);assert.equal(snapshot(s),before);
+  assert.match(n.logs.at(-1).text,/开始筹备/);
+  if(reason)assert.match(status.admissionNote,reason);
+  assert.doesNotMatch(n.logs.at(-1).text,/（|）/);
  }
- const n=run(ready({members:19,patrons:0}),draw);assert.equal(n.members,21);assert.equal(n.patrons,0);assert.deepEqual(n.pendingSponsors,[]);
+ const n=run(ready({members:19,patrons:0}),draw);assert.equal(n.members,19);assert.equal(n.patrons,0);assert.deepEqual(n.pendingSponsors,[]);
 });
 
-test('draw admissions consume the same invitation quota as old events, without altering old event rewards',()=>{
+test('preparing a draw does not consume the invitation quota needed by immediate events',()=>{
  const def=EVENTS.find(v=>v.id==='welcome');
  const s=ready({day:1,nextEventDay:3,registration:'invite',events:[{id:'event-character-1',kind:def.id,category:def.category,createdDay:1,expiresDay:7,title:def.title,description:def.description,options:structuredClone(def.options)}]});
  const a=run(s,draw),b=applyAction(a,{type:'resolve',eventId:'event-character-1',optionId:'greet'});
- assert.equal(a.members,s.members+2);assert.equal(b.members,a.members);assert.equal(b.mood,a.mood+3);assert.equal(b.admissionsToday,2);
+ assert.equal(a.members,s.members);assert.equal(b.members,a.members+2);assert.equal(b.mood,a.mood+3);assert.equal(b.admissionsToday,2);
  const firstEvent=applyAction(s,{type:'resolve',eventId:'event-character-1',optionId:'greet'}),lastDraw=run(firstEvent,draw);
- assert.equal(lastDraw.members,firstEvent.members);assert.match(lastDraw.logs.at(-1).text,/邀请名额已用完/);
+ assert.equal(lastDraw.members,firstEvent.members);assert.match(lastDraw.logs.at(-1).text,/开始筹备/);
 });
 
 test('missing, null, and empty ledgers remain compatible and are added only on a successful activity',()=>{
@@ -190,7 +193,7 @@ test('backend accepts only canonical activity IDs and no client reward, cost, da
  }
  const state=ready(),row={state:JSON.stringify(state),revision:0,speed:2,active:1,credit_ms:4000,last_seen:1000},before=snapshot(row);
  const next=transition(row,{type:'activity',activityId:draw},2000),newState=JSON.parse(next.state);
- assert.equal(newState.cash,state.cash-15);assert.equal(newState.members,state.members+2);assert.equal(next.credit_ms,6000);assert.equal(next.speed,2);assert.equal(next.active,1);
+ assert.equal(newState.cash,state.cash-15);assert.equal(newState.members,state.members);assert.ok(newState.life.projects.benefits);assert.equal(next.credit_ms,6000);assert.equal(next.speed,2);assert.equal(next.active,1);
  assert.equal(snapshot(row),before);assert.equal(newState.day,0);assert.equal(newState.timeSlot,0);
  const failed={...row,state:JSON.stringify(ready({cash:14}))},failedBefore=snapshot(failed);
  assert.throws(()=>transition(failed,{type:'activity',activityId:draw},2000),e=>e.code==='ACTION_REJECTED');assert.equal(snapshot(failed),failedBefore);
@@ -202,7 +205,7 @@ test('persistent backend activity is atomic and idempotent; rejection changes no
  try{
   await store.get(identity);const state=ready();db.prepare('UPDATE players SET state=?,members=?,days=? WHERE identity=?').run(snapshot(state),state.members,state.day,identityKey(identity));
   const action=input(0,{type:'activity',activityId:draw}),results=await Promise.all([store.act(identity,action),store.act(identity,action)]);
-  assert.deepEqual(results[0],results[1]);assert.equal(results[0].state.cash,state.cash-15);assert.equal(results[0].state.members,state.members+2);
+  assert.deepEqual(results[0],results[1]);assert.equal(results[0].state.cash,state.cash-15);assert.equal(results[0].state.members,state.members);assert.ok(results[0].state.life.projects.benefits);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM audit').get().n,1);assert.equal(db.prepare('SELECT COUNT(*) n FROM operations').get().n,1);
   const before=await store.get(identity),rowBefore=db.prepare('SELECT * FROM players').get();
   await assert.rejects(store.act(identity,input(1,{type:'activity',activityId:free},'activity-cooldown-operation-001')),e=>e.code==='ACTION_REJECTED');

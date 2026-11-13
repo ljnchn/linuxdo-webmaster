@@ -53,8 +53,12 @@ export function createSharedStore(db,channel,{now=Date.now}={}) {
   async leaderboard(sort='members'){
    if(!['members','days'].includes(sort))throw new HttpError(400,'INVALID_SORT');
    const order=sort==='members'?'members DESC,days DESC,run_id ASC':'days DESC,members DESC,run_id ASC';
-   const result=await prepare(`WITH scores AS (SELECT identity,public_id,run_id,name,members,days,0 AS finished FROM players WHERE channel=? AND json_extract(state,'$.gameOver')=0 UNION ALL SELECT identity,public_id,run_id,name,members,days,1 AS finished FROM completed_runs WHERE channel=?), ranked AS (SELECT *,ROW_NUMBER() OVER(PARTITION BY identity ORDER BY ${order}) AS best FROM scores) SELECT name,members,days,finished FROM ranked WHERE best=1 ORDER BY ${order} LIMIT 100`,channel,channel).all();
-   return {channel,trusted:channel!=='development',entries:result.results.map((row,i)=>({rank:i+1,...row,finished:!!row.finished}))};
+   const result=await prepare(`WITH scores AS (SELECT identity,public_id,run_id,name,members,days,0 AS finished FROM players WHERE channel=? AND json_extract(state,'$.gameOver')=0 UNION ALL SELECT identity,public_id,run_id,name,members,days,1 AS finished FROM completed_runs WHERE channel=?), ranked AS (SELECT *,ROW_NUMBER() OVER(PARTITION BY identity ORDER BY ${order}) AS best FROM scores) SELECT identity,name,members,days,finished FROM ranked WHERE best=1 ORDER BY ${order} LIMIT 100`,channel,channel).all();
+   return {channel,trusted:channel!=='development',entries:result.results.map((row,i)=>{
+    const subject=JSON.parse(row.identity)[2],id=Number(subject);
+    const userId=channel!=='development'&&/^[1-9]\d*$/.test(subject)&&Number.isSafeInteger(id)?id:null;
+    return {rank:i+1,userId,name:row.name,members:row.members,days:row.days,finished:!!row.finished};
+   })};
   }
  };
 }

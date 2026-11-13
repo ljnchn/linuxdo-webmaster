@@ -294,7 +294,7 @@ test('dialog choices dispatch the existing registration action directly without 
 test('moving the three status controls leaves registration effects, economy, time and saved progress unchanged', async () => {
   const click = renderFunction('e', 'ownsSave', 'act', 'REGISTRATIONS', `${functionLine('onClick')};return onClick(e);`);
   for (const create of [createGame, createChallengeGame]) for (const registration of REGISTRATIONS) {
-    const state = { ...create('工具栏规则未变', 789), members: 20, patrons: 1, admissionsToday: 1,
+    const state = { ...create('工具栏规则未变', 789), members: 20, patrons: 1, admissionsToday: 1, communityLevel:2,
       buildingActivities: { resources: { activityId: 'resources-book', day: 0 } } };
     const before = structuredClone(state), actions = [];
     let updated;

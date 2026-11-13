@@ -1,6 +1,6 @@
 import {WORLD_WIDTH,WORLD_HEIGHT} from './world.mjs';
 // Original and user-provided fictional NPC chatter. Display-only randomness never touches the game seed.
-export const CHAT_TIMING=Object.freeze({showMs:5000,firstMinMs:3000,firstMaxMs:6000,gapMinMs:8000,gapMaxMs:15000});
+export const CHAT_TIMING=Object.freeze({showMs:5000,firstMinMs:3000,firstMaxMs:6000,gapMinMs:5000,gapMaxMs:9000});
 export const CHAT_LINES=Object.freeze([
  {text:'佬友，今天也来逛逛。'}, {text:'先看文档再动手。'}, {text:'这个思路有意思。'},
  {text:'等我写个最小复现。'}, {text:'这篇长文值得收藏。'}, {text:'有问题，慢慢聊。'},
@@ -15,6 +15,14 @@ export const CHAT_LINES=Object.freeze([
  {text:'在错误的地方'}, {text:'谁又举报我？'}, {text:'neo 哪里跑'}, {text:'你们赢了我却没有输'},
  {text:'最爱小鲸鱼！'}, {text:'快来抢红包！'}, {text:'热乎的公益站~'}, {text:'曝光黑心富可敌国'},
  {text:'马上三级啦'}, {text:'号又被A\\封了'}, {text:'O\\又降智了'}, {text:'大的要来了'}, {text:'我看女装了'},
+ {text:'佬友，借一步说话。'}, {text:'感谢佬友，已三连！'}, {text:'今天也是感恩的一天。'},
+ {text:'先码住，回头再看。'}, {text:'收藏了就算学会了。'}, {text:'等一个大佬总结。'},
+ {text:'佬友们的手速太快了！'}, {text:'这波羊毛赶上了。'}, {text:'来晚了，车开走了。'},
+ {text:'公益站又上新了！'}, {text:'求个省流版。'}, {text:'蹲一个后续。'},
+ {text:'一觉醒来又变天了。'}, {text:'这帖子有点东西。'}, {text:'我的收藏夹会学的。'},
+ {text:'让我康康什么好东西。'}, {text:'路过，给佬友点个赞。'}, {text:'今天的额度又用完了。'},
+ {text:'这个模型有点聪明。'}, {text:'刷新一下，奇迹出现。'}, {text:'佬，你是懂分享的。'},
+ {text:'刚上车就发车了。'}, {text:'又被佬友带飞了。'}, {text:'我宣布这波血赚！'},
  {text:'夜深了，记得早点睡。',period:2}, {text:'晚安，明天再来折腾。',period:2}
 ].map(Object.freeze));
 export function createChatSchedule({random=Math.random}={}){
