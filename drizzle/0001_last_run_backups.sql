@@ -1,0 +1,1 @@
+CREATE TABLE IF NOT EXISTS last_run_backups (identity TEXT PRIMARY KEY NOT NULL, run_id TEXT NOT NULL, channel TEXT NOT NULL, state TEXT NOT NULL, revision INTEGER NOT NULL, snapshot TEXT NOT NULL, saved_at INTEGER NOT NULL);

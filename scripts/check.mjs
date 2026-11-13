@@ -1,0 +1,6 @@
+import { readdir, readFile } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
+async function check(dir){for(const entry of await readdir(dir,{withFileTypes:true})){const file=`${dir}/${entry.name}`;if(entry.isDirectory())await check(file);else if(file.endsWith('.mjs'))execFileSync(process.execPath,['--check',file],{stdio:'inherit'});}}
+for(const dir of ['src','server','worker','scripts','mapp','tests'])await check(dir);
+const html=await readFile('index.html','utf8');if(!html.includes('src/web-entry.mjs'))throw new Error('Missing web entry');
+console.log('All JavaScript syntax checks passed.');

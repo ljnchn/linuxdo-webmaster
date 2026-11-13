@@ -1,0 +1,15 @@
+import { mkdir } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { createAuthenticator } from './auth.mjs';
+import { createStore } from './store.mjs';
+import { createApp } from './app.mjs';
+import { databasePath } from './database-path.mjs';
+const auth = await createAuthenticator();
+const dataDir = resolve(process.env.DATA_DIR || './data');
+await mkdir(dataDir, { recursive: true });
+const store = createStore(databasePath(dataDir,auth.channel,process.env.DATABASE_PATH), auth.channel);
+const server = createApp({ store, auth });
+const host = process.env.HOST || '127.0.0.1';
+const port = Number(process.env.PORT || 8787);
+server.listen(port, host, () => console.log(`Community API: ${host}:${port} (${auth.channel})`));
+for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => server.close(() => { store.close(); auth.close(); process.exit(0); }));
