@@ -10,7 +10,7 @@ import {validateInput,transition,identityKey} from '../server/protocol.mjs';
 import {createStore} from '../server/store.mjs';
 import {PROJECT_DAYS} from '../src/community-life.mjs';
 
-const ready=(patch={})=>({...createGame('活动测试',12345),members:20,patrons:1,communityLevel:5,...patch});
+const ready=(patch={})=>({...createGame('活动测试',12345),members:20,patrons:1,communityLevel:10,...patch});
 const run=(s,activityId)=>applyAction(s,{type:'activity',activityId});
 const tick=s=>applyAction(s,{type:'tick',periods:1});
 const until=(s,day)=>{while(s.day<day&&!s.gameOver)s=tick(s);return s;};
@@ -28,13 +28,13 @@ const expected=[
  ['resources-book','resources','书籍共读',0,0,2,3],
 ];
 
-test('building activity catalog has six canonical fictional choices and shared prototype cooldown',()=>{
+test('building activity catalog has six canonical choices and shared prototype cooldown',()=>{
  assert.equal(BUILDING_ACTIVITIES.length,6);
  assert.equal(RULES.buildingActivityCooldownDays,7);
  for(const [id,building,name,cost,members,mood,content] of expected){
   const def=BUILDING_ACTIVITIES.find(v=>v.id===id);
-  assert.deepEqual({...def,description:undefined},{id,building,name,description:undefined,requiredLevel:{'benefits-free-list':2,'benefits-badge-draw':4,'resources-software':3,'resources-repository':4,'resources-course':5,'resources-book':3}[id],cost,rewards:{members,mood,content},cooldownDays:7});
-  assert.match(def.description,/虚构/);
+  assert.deepEqual({...def,description:undefined},{id,building,name,description:undefined,requiredLevel:{'benefits-free-list':2,'benefits-badge-draw':4,'resources-software':3,'resources-repository':5,'resources-course':6,'resources-book':4}[id],cost,rewards:{members,mood,content},cooldownDays:7});
+  assert.doesNotMatch(def.description,/虚构|模拟/);assert.ok(def.description.length>=8);
   assert.doesNotMatch(def.description,/https?:\/\//);
   assert.ok(Object.isFrozen(def)&&Object.isFrozen(def.rewards));
  }
@@ -97,8 +97,8 @@ test('fees are exact, free alternatives work at zero cash, and capped rewards do
   assert.equal(n.cash,0);assert.equal(n.mood,PROJECT_DAYS[def.id]?99:Math.min(100,99+def.rewards.mood));assert.equal(n.content,PROJECT_DAYS[def.id]?99:Math.min(100,99+def.rewards.content));
   if(def.cost){
    const poor=ready({cash:def.cost-1}),copy=snapshot(poor),status=selected(poor,def.id);
-   assert.equal(status.canRun,false);assert.match(status.blockedReason,/游戏星币不足/);
-   assert.throws(()=>run(poor,def.id),/游戏星币不足/);assert.equal(snapshot(poor),copy);assert.equal(Object.hasOwn(poor,'buildingActivities'),false);
+   assert.equal(status.canRun,false);assert.match(status.blockedReason,/刀不够/);
+   assert.throws(()=>run(poor,def.id),/刀不够/);assert.equal(snapshot(poor),copy);assert.equal(Object.hasOwn(poor,'buildingActivities'),false);
   }
  }
  assert.equal(run(ready({cash:0}),free).cash,0);assert.equal(run(ready({cash:0}),software).cash,0);

@@ -23,12 +23,12 @@ test('a slower previous sorting request cannot replace the current leaderboard',
  assert.match(h.node.html,/规模榜/);assert.doesNotMatch(h.node.html,/过期榜/);
 });
 test('leaderboard renders explicit empty and retryable error states',async()=>{
- const empty=harness({getLeaderboard:async()=>({entries:[]})});await empty.rank();assert.match(empty.node.html,/暂无上榜成绩/);
+ const empty=harness({getLeaderboard:async()=>({entries:[]})});await empty.rank();assert.match(empty.node.html,/榜上还空着/);
  const error=harness({getLeaderboard:async()=>{throw Error('<offline>');}});await error.rank('members');assert.match(error.node.html,/&lt;offline>/);assert.match(error.node.html,/data-rank="members"/);
 });
 test('new communities send no interval heartbeat before opening',()=>{
  const interval=source.slice(source.indexOf('if(transport){heartbeatTimer='),source.indexOf('if(transport){heartbeatTimer=')+240);
- assert.match(interval,/if\(started&&!busy&&!state.gameOver\)/);
+ assert.match(interval,/if\(!busy&&isRunning\(\)&&performance.now\(\)-lastSyncedAt>=RULES.heartbeatIntervalMs\)/);
 });
 test('a durable achievement timestamp of zero still renders unlocked',()=>{
  const body=source.slice(source.indexOf(' function achievements()'),source.indexOf('\n function journal()'));

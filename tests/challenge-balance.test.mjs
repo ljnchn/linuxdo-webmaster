@@ -32,7 +32,7 @@ test('confirmed active restart changes seed, preserves identity and does not mut
  const fresh=act(s,{type:'restart',confirmed:true});assert.deepEqual(s,before);assert.equal(fresh.difficulty,'challenge');assert.equal(fresh.slogan,s.slogan);assert.equal(fresh.name,s.name);assert.equal(fresh.revision,1);assert.notEqual(fresh.seed,s.seed);
 });
 test('daily costs, recoverable shortage, controlled quality and exact 30-day expiry',()=>{
- const s=createChallengeGame();const next=day(s);assert.equal(next.cash,759);assert.equal(next.mood,74);assert.equal(next.content,54);assert.equal(summarize({...s,members:60}).maintenanceCost,31);
+ const s=createChallengeGame();const next=day(s);assert.equal(next.cash,759);assert.equal(next.mood,74);assert.equal(next.content,54);assert.equal(summarize({...s,members:60}).maintenanceCost,19);
  const broke=day({...s,cash:0,registration:'closed'});assert.equal(broke.gameOver,false);assert.equal(broke.cash,0);assert.equal(broke.mood,71);
  const care=day(act(s,{type:'strategy',strategy:'care'}));assert.equal(care.mood,77);assert.equal(care.content,53);
  let end=s;while(!end.gameOver)end=day(end);assert.equal(end.day,30);assert.equal(end.members<=60,true);
@@ -51,8 +51,15 @@ test('multi-seed active free choices outperform neglect without changing classic
  }
 });
 test('scaled fees are previewed and full servers can earn patron support within the five-percent cap',()=>{
- for(const [serverId,members,cost] of [['nest',60,31],['block',180,102],['town',500,298],['city',1500,920]])assert.equal(summarize({...createChallengeGame(),serverId,members}).maintenanceCost,cost);
+ for(const [serverId,members,cost] of [['nest',60,19],['block',180,60],['town',500,178],['city',1500,560]])assert.equal(summarize({...createChallengeGame(),serverId,members}).maintenanceCost,cost);
  let s={...createChallengeGame('满员小站',7919),members:60,mood:100,content:100,registration:'closed'};
  for(let i=0;i<25;i++){s=day(s);assert.ok(s.patrons<=Math.floor(s.members*.05));}
  assert.ok(s.patrons>0);assert.equal(s.members,60);
+});
+test('active play can fund all three expansions within six months without paid event choices',()=>{
+ for(const seed of [1,17,20261110,4294967295]){
+  const result=simulate(seed,{expand:true,days:180});
+  assert.equal(result.over,false,JSON.stringify(result));assert.equal(result.upgrades,3);assert.equal(result.members,1500);
+  assert.ok(result.cash>=SERVERS.at(-1).rent);assert.ok(Math.min(result.mood,result.content)>=35);
+ }
 });

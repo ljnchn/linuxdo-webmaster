@@ -3,7 +3,7 @@
   "id": "01a1c987-3436-75a8-8864-052fdcd1959a",
   "name": "我要当站长",
   "tags": ["游戏", "模拟经营", "像素", "休闲", "社区"],
-  "version": "0.10.0",
+  "version": "0.12.0",
   "entry": "index.html",
   "script": "app.js",
   "style": "app.css",

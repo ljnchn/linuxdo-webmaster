@@ -46,7 +46,7 @@ test('six distinct community dilemmas expand the pool and expose presentation-on
       assert.deepEqual([op.cost,members,mood,content],expectedEffects[def.id][index]);
       assert.equal(cash,0);assert.equal(patrons,0);
       assert.ok(Object.isFrozen(op));assert.ok(Object.isFrozen(op.rewards));
-      if(op.cost)assert.ok(op.description.includes(`花 ${op.cost} 星币`));
+      if(op.cost)assert.ok(op.description.includes(`花 ${op.cost} 刀`));
       if(members<0)assert.ok(op.description.includes(`减少 ${-members} 位佬友`));
       for(const [label,value] of [['氛围',mood],['内容',content]])if(value)assert.ok(op.description.includes(`${label} ${value>0?'+':''}${value}`));
     }
@@ -156,14 +156,18 @@ const historicWelcome={id:'welcome',category:'character',title:'新成员加入'
   {id:'host',label:'举办欢迎会',description:'花 20 星币，尝试迎接 6 人，氛围 +8。',cost:20,rewards:{members:6,mood:8,content:0,cash:0,patrons:0}},
   {id:'greet',label:'亲自问好',description:'尝试迎接 2 人，氛围 +3。',cost:0,rewards:{members:2,mood:3,content:0,cash:0,patrons:0}},
 ]};
-const currentWelcome={id:'welcome',category:'character',title:'佬友加入',description:'佬友敲响小站的大门，想在这里安家。入站遵守当前注册状态和容量。',options:[
-  {id:'host',label:'举办欢迎会',description:'花 20 星币，尝试迎接 6 位佬友，氛围 +8。',cost:20,rewards:{members:6,mood:8,content:0,cash:0,patrons:0}},
-  {id:'greet',label:'亲自问好',description:'尝试迎接 2 位佬友，氛围 +3。',cost:0,rewards:{members:2,mood:3,content:0,cash:0,patrons:0}},
+const previousWelcome={id:'welcome',category:'character',title:'有人来敲门',description:'门口站着一位拎着包的新佬友，眼神里写满「求收留」。这扇门，开不开？',options:[
+  {id:'host',label:'举办欢迎会',description:'花 20 刀摆一桌欢迎会，尝试迎接 6 位佬友，氛围 +8。',cost:20,rewards:{members:6,mood:8,content:0,cash:0,patrons:0}},
+  {id:'greet',label:'亲自问好',description:'挨个打招呼，尝试迎接 2 位佬友，氛围 +3。',cost:0,rewards:{members:2,mood:3,content:0,cash:0,patrons:0}},
+]};
+const currentWelcome={id:'welcome',category:'character',title:'门口来了一队新佬友',description:'门口忽然排起一队新佬友：有人带着自我介绍，有人只留一句「求收留」。',options:[
+  {id:'host',label:'办一场迎新茶话会',description:'花 20 刀准备好迎新帖和茶水，尝试迎接 6 位佬友，氛围 +8。',cost:20,rewards:{members:6,mood:8,content:0,cash:0,patrons:0}},
+  {id:'greet',label:'在迎新帖里挨个回复',description:'认真回复每位新佬友，尝试迎接 2 位佬友，氛围 +3。',cost:0,rewards:{members:2,mood:3,content:0,cash:0,patrons:0}},
 ]};
 
 test('pre-expansion v4 and legacy v3 snapshots preserve progress, identity, event IDs and rewards',()=>{
   assert.deepEqual(EVENTS.find(e=>e.id==='welcome'),currentWelcome);
-  for(const version of [3,4])for(const def of [historicWelcome,currentWelcome]){
+  for(const version of [3,4])for(const def of [historicWelcome,previousWelcome,currentWelcome]){
     const source=eventState(def,{version,revision:47,cash:432,name:'自取的站名',slogan:'一起认真分享',timeSlot:2});
     if(version===3){delete source.serverDaysRemaining;source.serverPeriodsRemaining=71;}
     const original=structuredClone(source),loaded=migrateState(source);

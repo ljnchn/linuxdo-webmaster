@@ -1,7 +1,8 @@
 /* Original pixel characters plus commissioned original environment. Rendering never changes rules. */
-import {CHARACTER_ATTENTION_KINDS} from './engine.mjs';
+import {CHARACTER_ATTENTION_KINDS,BUILDING_UNLOCKS} from './engine.mjs';
 import {communityProgress,RESIDENTS,RESIDENT_PLACES,residentStatus,lifeOf,buildingMastery} from './community-life.mjs';
 export const WORLD_WIDTH=2823, WORLD_HEIGHT=941;
+export const ACTIVITY_PLACES=Object.freeze({benefits:1850,resources:2410});
 // The original street retains its coordinates; sharing houses extend it to the right.
 // The former document kiosk is now a non-interactive garden and rest area.
 export const ORIGINAL_OFFSET=0, DEFAULT_SCENE_CENTER=790;
@@ -85,7 +86,7 @@ export function getSceneActors(state,time=0,reduced=false){
  const now=Number.isFinite(time)?time:0,marked=markedActors(state,now,reduced);
  const level=communityProgress(state).level;
  const residents=state.gameOver?[]:RESIDENTS.filter(person=>level>=person.level).map(person=>({id:'resident:'+person.id,role:'resident',residentId:person.id,x:RESIDENT_PLACES[person.id],y:748,style:person.style,mentor:residentStatus(state,person.id).complete}));
- const staff=state.gameOver?[]:[['benefits',2,1850],['resources',3,2410]].flatMap(([building,required,x])=>{const project=lifeOf(state).projects[building],hosting=project&&state.day>project.startedDay;return level<required?[]:Array.from({length:project?hosting?4:2:1},(_,i)=>({id:`staff:${building}:${i}`,role:'staff',x:x+i*58+(reduced?0:Math.round(Math.sin(now/2200+i)*7)),y:hosting?690+i%2*38:700+i%2*25,style:4+i}));});
+ const staff=state.gameOver?[]:Object.entries(ACTIVITY_PLACES).flatMap(([building,x])=>{const project=lifeOf(state).projects[building],hosting=project&&state.day>project.startedDay;return level<BUILDING_UNLOCKS[building]?[]:Array.from({length:project?hosting?4:2:1},(_,i)=>({id:`staff:${building}:${i}`,role:'staff',x:x+i*58+(reduced||i===0?0:Math.round(Math.sin(now/2200+i)*7)),y:hosting?690+i%2*38:700+i%2*25,style:4+i}));});
  return [...communityActors(state,now,reduced,marked),{id:'host',role:'host',x:772,y:748,style:0,patron:false},...marked,...staff,...residents];
 }
 export function getCommunityActors(state,time=0,reduced=false){
@@ -121,7 +122,7 @@ export function createWorld(canvas,getState,onBuilding,onFrame,sceneUrl='assets/
   const s=getState();r(0,0,WORLD_WIDTH,WORLD_HEIGHT,'#90c9ed');if(bg?.complete&&bg.naturalWidth)ctx.drawImage(bg,0,0,WORLD_WIDTH,WORLD_HEIGHT);
   const level=communityProgress(s).level;
   for(const building of SCENE_BUILDINGS.filter(b=>['benefits','resources'].includes(b.id))){
-   const required=building.id==='benefits'?2:3;
+   const required=BUILDING_UNLOCKS[building.id];
    if(level<required){
     // Clip the construction net to each building's roofline, leaving the sky and garden visible.
     const points=building.id==='benefits'?[[.49,0],[.59,.08],[.61,.2],[1,.46],[1,1],[0,1],[0,.46],[.39,.2],[.41,.08]]:[[0,.18],[.58,.18],[.58,0],[1,0],[1,1],[0,1]];

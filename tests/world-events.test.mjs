@@ -28,21 +28,21 @@ const expectedWorldEffects={
  bazaar:[[20,6,6,3,0],[0,0,-4,-2,35]],
 };
 
-test('ten immutable fictional world stories each offer a paid and free choice with accurate copy',()=>{
+test('ten immutable world stories each offer a paid and free choice with accurate copy',()=>{
  assert.deepEqual(worlds.map(e=>e.id),Object.keys(expectedWorldEffects));
  assert.equal(new Set(EVENTS.map(e=>e.id)).size,EVENTS.length);
  for(const def of worlds){
-  assert.match(def.description,/虚构/);assert.ok(Object.isFrozen(def));assert.equal(def.options.length,2);
+  assert.doesNotMatch(def.description,/虚构|模拟/);assert.ok(Object.isFrozen(def));assert.equal(def.options.length,2);
   assert.ok(def.options[0].cost>0);assert.equal(def.options[1].cost,0);
   assert.notEqual(def.options[0].id,def.options[1].id);
   for(const [index,choice] of def.options.entries()){
    const {members,mood,content,cash,patrons}=choice.rewards;
    assert.deepEqual([choice.cost,members,mood,content,cash],expectedWorldEffects[def.id][index],`${def.id}/${choice.id}`);
    assert.equal(patrons,0);assert.ok(Object.isFrozen(choice));assert.ok(Object.isFrozen(choice.rewards));
-   if(choice.cost)assert.ok(choice.description.includes(`花 ${choice.cost} 星币`));
+   if(choice.cost)assert.ok(choice.description.includes(`花 ${choice.cost} 刀`));
    if(members)assert.ok(choice.description.includes(`尝试吸引 ${members} 位佬友`));
    for(const [label,value] of [['氛围',mood],['内容',content]])if(value)assert.ok(choice.description.includes(`${label} ${value>0?'+':''}${value}`));
-   if(cash)assert.ok(choice.description.includes(`获得 ${cash} 星币`));
+   if(cash)assert.ok(choice.description.includes(`获得 ${cash} 刀`));
   }
  }
  const visible=JSON.stringify([RULES.explanation,REGISTRATIONS,STRATEGIES,EVENTS]);

@@ -1,5 +1,6 @@
 import { getSDK } from './vendor/index.mjs';
 import { createPlatformStorage } from './storage.mjs';
+import { RESIDENTS } from '../src/community-life.mjs';
 
 export function createPlatformTransport(sdk) {
   const profiles = new Map();
@@ -33,7 +34,15 @@ export async function initializeMapp({ render, sdk = getSDK() } = {}) {
     const storage = await createPlatformStorage(sdk.localStorage);
     const scene = await sdk.assets.readBytes('assets/community-sharing-day-v2.png', { timeoutMs: 15_000 });
     const sceneUrl = URL.createObjectURL(new Blob([scene], { type: 'image/png' }));
-    await render(createPlatformTransport(sdk), { storage, sceneUrl, saveFile: (name, data) => sdk.files.save(name, data) });
+    // Local avatar assets become blob URLs so the sandbox never needs a remote image host.
+    const avatars = {};
+    await Promise.all(RESIDENTS.map(async person => {
+      try {
+        const bytes = await sdk.assets.readBytes(person.avatar, { timeoutMs: 15_000 });
+        avatars[person.avatar] = URL.createObjectURL(new Blob([bytes], { type: 'image/jpeg' }));
+      } catch { /* decorative only; fall back to the packaged relative path */ }
+    }));
+    await render(createPlatformTransport(sdk), { storage, sceneUrl, avatars, saveFile: (name, data) => sdk.files.save(name, data) });
   } catch (error) {
     const notice = document.createElement('p');
     notice.setAttribute('role', 'alert');

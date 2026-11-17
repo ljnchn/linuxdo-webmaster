@@ -70,27 +70,27 @@ function streetHarness({ scrollWidth = WORLD_WIDTH, clientWidth = 900, scrollLef
   const query = selector => { if (selector === '#scene-scroll') return scene; if (!nodes.has(selector)) nodes.set(selector, node()); return nodes.get(selector); };
   let actors = [];
   const draw = renderFunction('$', '$$', 'WORLD_WIDTH', `${line('updateStreet')};return updateStreet;`)(query, selector => {
-    assert.equal(selector, '.scene-actor[data-scene-event]', 'direction counts must exclude sponsor and ambient controls');
-    return actors.filter(actor => actor.dataset.sceneEvent);
+    assert.equal(selector, '.scene-actor[data-scene-event],.sponsor-actor,.activity-actor[data-ready="true"],.resident-scene.has-news');
+    return actors.filter(actor => actor.dataset.sceneEvent || actor.dataset.action === 'claim' || actor.dataset.ready === 'true' || actor.dataset.resident);
   }, WORLD_WIDTH);
   return { scene, query, draw, setActors(value) { actors = value; } };
 }
 const actorAt = (markerX, id = 'event') => ({ dataset: { worldX: String(markerX - 21), sceneEvent: id } });
 
-test('pan arrows count only off-screen events at exact marker boundaries and update after movement or removal', () => {
+test('pan arrows count off-screen actionable people at exact marker boundaries and update after movement or removal', () => {
   const h = streetHarness();
   const left = h.query('[data-action="pan-left"]'), right = h.query('[data-action="pan-right"]');
   const actors = [actorAt(23, 'left'), actorAt(24, 'left-edge'), actorAt(876, 'right-edge'), actorAt(877, 'right'),
-    { dataset: { worldX: '1700', action: 'mail' } }];
+    { dataset: { worldX: '1700', action: 'claim' } }];
   h.setActors(actors); h.draw();
   assert.equal(left.dataset.eventCount, '1');
-  assert.equal(right.dataset.eventCount, '1');
+  assert.equal(right.dataset.eventCount, '2');
   assert.equal(left.disabled, true); assert.equal(right.disabled, false);
-  assert.equal(left.attributes['aria-label'], '向左逛社区，1 件待处理事件在左侧');
-  assert.equal(right.title, '向右逛社区，1 件待处理事件在右侧');
+  assert.equal(left.attributes['aria-label'], '向左逛社区，1 件可办事项在左侧');
+  assert.equal(right.title, '向右逛社区，2 件可办事项在右侧');
   actors[3].dataset.worldX = '400'; h.draw();
-  assert.equal(right.dataset.eventCount, '0', 'counts follow the latest DOM-marker coordinates without replacing arrow nodes');
-  assert.equal(right.title, '向右逛社区');
+  assert.equal(right.dataset.eventCount, '1', 'counts retain off-screen sponsorship while the event walks into view');
+  assert.equal(right.title, '向右逛社区，1 件可办事项在右侧');
   h.setActors([]); h.draw();
   assert.equal(left.dataset.eventCount, '0'); assert.equal(right.dataset.eventCount, '0');
   assert.equal(left.attributes['aria-label'], '向左逛社区');

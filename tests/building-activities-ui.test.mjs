@@ -11,7 +11,7 @@ const functionLine = name => {
   return source;
 };
 const actSource = app.slice(app.indexOf(' async function act(action,message)'), app.indexOf('\n async function setClockActive'));
-const ready = patch => ({ ...engine.createChallengeGame('分享小站', 123, '一起进步'), members: 20, patrons: 1, communityLevel: 5, ...patch });
+const ready = patch => ({ ...engine.createChallengeGame('分享小站', 123, '一起进步'), members: 20, patrons: 1, communityLevel: 10, ...patch });
 const cards = html => [...html.matchAll(/<button\b[^>]*data-activity="([^"]+)"[^>]*>[\s\S]*?<\/button>/g)].map(match => ({ id: match[1], html: match[0], disabled: /<button\b[^>]*\sdisabled(?:\s|>)/.test(match[0]) }));
 const show = (state, building) => {
   const opened = [];
@@ -24,7 +24,7 @@ const show = (state, building) => {
 function harness(initial = ready(), transport = null) {
   return renderFunction('initial', 'transport', 'engine', `
     const {RULES, BUILDING_ACTIVITIES, activityStatus, applyAction, migrateState, validateState}=engine;
-    let state=structuredClone(initial),busy=false,speed=2,started=true,memoryOnly=false,storageWarning='',
+    let state=structuredClone(initial),busy=false,disconnected=false,lastSyncedAt=0,speed=2,started=true,memoryOnly=false,storageWarning='',
       pendingRestartRequest=null,pendingClockActive=null,serverBackup=null,dialogRevision=0,dialogTrigger=null,owner=true;
     const local=!transport,KEY='little-community-story:v4',writes=[],messages=[],clockCalls=[],elements=new Map();
     let renders=0,redraws=0;
@@ -103,7 +103,7 @@ test('building panels show two benefits and all four resource categories without
     for (const [index, activity] of expected.entries()) {
       assert.equal(actual[index].disabled, false);
       assert.match(actual[index].html, new RegExp(activity.name));
-      assert.match(actual[index].html, new RegExp(activity.cost ? `${activity.cost} 星币` : '免费'));
+      assert.match(actual[index].html, new RegExp(activity.cost ? `${activity.cost} 刀` : '免费'));
       if (activity.rewards.mood) assert.ok(actual[index].html.includes(`氛围 +${activity.rewards.mood}`));
       if (activity.rewards.content) assert.ok(actual[index].html.includes(`内容 +${activity.rewards.content}`));
     }
@@ -127,7 +127,7 @@ test('zero members, game over, cooldown and insufficient funds expose disabled n
   for (const building of ['benefits', 'resources']) for (const card of cards(show(ready({ cash: 0 }), building).html)) {
     const definition = engine.BUILDING_ACTIVITIES.find(activity => activity.id === card.id);
     assert.equal(card.disabled, definition.cost > 0);
-    if (definition.cost) assert.match(card.html, /游戏星币不足/);
+    if (definition.cost) assert.match(card.html, /刀不够/);
   }
 });
 

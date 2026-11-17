@@ -9,7 +9,7 @@ import {createStore} from '../server/store.mjs';
 import {identityKey,validateInput} from '../server/protocol.mjs';
 import {renderFunction} from './fixtures/render-function.mjs';
 
-const state=members=>({...createGame('建筑开放',987),members,serverId:members>60?'block':'nest'});
+const state=members=>({...createGame('建筑开放',987),members,serverId:members>500?'city':members>180?'town':members>60?'block':'nest'});
 const activity=(s,id)=>applyAction(s,{type:'activity',activityId:id});
 const app=await readFile(new URL('../src/app.mjs',import.meta.url),'utf8');
 const source=name=>app.split('\n').find(line=>line.trimStart().startsWith(`function ${name}(`));
@@ -20,7 +20,7 @@ const panel=(s,building)=>{
 };
 
 test('community levels and every activity enforce exact member thresholds with no mutation on rejection',()=>{
- assert.deepEqual(COMMUNITY_LEVELS.map(v=>v.members),[0,10,30,60,120,250,500,1000,1500]);
+ assert.deepEqual(COMMUNITY_LEVELS.map(v=>v.members),[0,10,30,60,120,250,500,750,1000,1500]);
  for(const definition of BUILDING_ACTIVITIES){
   const threshold=COMMUNITY_LEVELS[definition.requiredLevel-1].members;
   for(const members of [threshold-1,threshold]){
@@ -41,9 +41,9 @@ test('community levels and every activity enforce exact member thresholds with n
 
 test('levels persist through member loss and history rollover; restart resets them and migration preserves saves',()=>{
  const definition=EVENTS.find(v=>v.id==='troublemaker');
- const before={...state(60),day:1,nextEventDay:2,events:[{id:'event-character-1',kind:definition.id,category:definition.category,createdDay:1,expiresDay:7,title:definition.title,description:definition.description,options:structuredClone(definition.options)}]};
+ const before={...state(250),day:1,nextEventDay:2,events:[{id:'event-character-1',kind:definition.id,category:definition.category,createdDay:1,expiresDay:7,title:definition.title,description:definition.description,options:structuredClone(definition.options)}]};
  const after=applyAction(before,{type:'resolve',eventId:'event-character-1',optionId:'remove'});
- assert.equal(after.members,59);assert.equal(after.communityLevel,4);
+ assert.equal(after.members,249);assert.equal(after.communityLevel,6);
  assert.equal(activityStatus(after,'benefits').activities.find(v=>v.id==='benefits-badge-draw').canRun,true);
  const historical={...state(2),day:2,nextEventDay:3,history:[{day:1,members:120,cash:500}]};
  assert.equal(communityProgress(historical).level,5);
@@ -54,22 +54,23 @@ test('levels persist through member loss and history rollover; restart resets th
  const fresh=applyAction(saved,{type:'restart',confirmed:true});
  assert.equal(communityProgress(fresh).level,1);
  assert.equal(activityStatus(fresh,'benefits').unlocked,false);
- for(const value of [0,10,1.5,'5',null])assert.equal(validateState({...state(1),communityLevel:value}),false);
+ for(const value of [0,11,1.5,'5',null])assert.equal(validateState({...state(1),communityLevel:value}),false);
 });
 
 test('locked buildings show requirements rather than action buttons; later activity tiers remain disabled',()=>{
  for(const building of ['benefits','resources']){
   const html=panel(state(0),building);
-  assert.match(html,/街区正在等更多同路人/);assert.match(html,/还差 (10|30) 位/);
+  assert.match(html,/这条街还没热闹起来/);assert.match(html,/还差 (10|30) 位/);
   assert.doesNotMatch(html,/data-activity=/);
  }
  const benefits=panel(state(10),'benefits');
  assert.match(benefits,/data-activity="benefits-free-list"\s+aria-label/);
  assert.match(benefits,/data-activity="benefits-badge-draw" disabled/);
- const resources=panel(state(30),'resources');
- for(const id of ['resources-software','resources-book'])assert.match(resources,new RegExp(`data-activity="${id}"\\s+aria-label`));
- for(const id of ['resources-repository','resources-course'])assert.match(resources,new RegExp(`data-activity="${id}" disabled`));
- assert.match(resources,/Lv\.5 解锁/);
+ assert.match(benefits,/Lv\.4 解锁/);
+ const resources=panel(state(1500),'resources');
+ for(const id of ['resources-software','resources-book','resources-repository','resources-course'])assert.match(resources,new RegExp(`data-activity="${id}"\\s+aria-label`));
+ const earlier=panel(state(29),'resources');
+ assert.doesNotMatch(earlier,/data-activity=/);assert.match(earlier,/还差 1 位/);
 });
 
 test('scene signs and level label refresh without replacing focusable building nodes or changing state',()=>{
@@ -79,14 +80,15 @@ test('scene signs and level label refresh without replacing focusable building n
   const item=node();item.badge=node();item.classList={toggle:(key,value)=>value?item.classes.add(key):item.classes.delete(key)};nodes.set(selector,item);
  }
  const render=renderFunction('state','communityProgress','activityStatus','$',`${source('renderBuildingAccess')};renderBuildingAccess();`);
- for(const members of [0,10,30,120]){
+ for(const members of [0,30,60,120]){
   const s=state(members),before=structuredClone(s);
   render(s,communityProgress,activityStatus,selector=>nodes.get(selector));
   assert.equal(nodes.get('#community-level').textContent,`Lv.${communityProgress(s).level}`);
   for(const building of ['benefits','resources']){
    const status=activityStatus(s,building),button=nodes.get('.building-'+building);
    assert.equal(button.classes.has('is-locked'),!status.unlocked);
-   assert.equal(button.badge.textContent,status.unlocked?'已开放':`Lv.${status.requiredLevel} 开放`);
+   assert.equal(button.badge.hidden,true);
+   assert.equal(button.badge.textContent,'');
    assert.match(button.attributes['aria-label'],status.unlocked?/已开放/:/查看开放条件/);
   }
   assert.deepEqual(s,before);

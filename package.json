@@ -1,1 +1,1 @@
-{"name":"linuxdo-webmaster","version":"0.10.0","type":"module","private":true,"scripts":{"pack":"bun mapp/build.mjs","test":"cd tests && node --test *.test.mjs","check":"node scripts/check.mjs","start":"node server/index.mjs","dev":"node scripts/dev.mjs"}}
+{"name":"linuxdo-webmaster","version":"0.12.0","type":"module","private":true,"scripts":{"pack":"bun mapp/build.mjs","test":"cd tests && node --test *.test.mjs","check":"node scripts/check.mjs","start":"node server/index.mjs","dev":"node scripts/dev.mjs"}}

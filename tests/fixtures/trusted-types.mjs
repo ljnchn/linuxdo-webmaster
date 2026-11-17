@@ -25,7 +25,7 @@ try{
   check(!document.querySelector('#dialog').open,'Start must finish without native form submission');
   check(game.getState().slogan==='A & B "quote"','Start did not save the submitted profile');
   check(!document.querySelector('#station-name img'),'Player name became markup');
-  const actions=['help','servers','strategy','members','operations','backups','journal','events','resources','benefits'];
+  const actions=['help','servers','strategy','members','operations','backups','journal','events','resources','benefits','residents'];
   for(const action of actions){
     document.querySelector('[data-action="close"]')?.click();
     const button=document.createElement('button');button.dataset.action=action;document.querySelector('#app').append(button);button.click();button.remove();

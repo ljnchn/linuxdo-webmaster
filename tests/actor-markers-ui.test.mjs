@@ -25,7 +25,7 @@ function markerDOM(initial, project = getSceneActors) {
   const root = { children: [], append(button) { button.isConnected = true; this.children.push(button); } };
   const document = { createElement(tag) {
     assert.equal(tag, 'button');
-    return { dataset: {}, style: {}, attributes: {}, writes: 0, isConnected: false,
+    return { dataset: {}, style: {}, attributes: {}, writes: 0, isConnected: false, tip: {}, querySelector() { return this.tip; },
       set innerHTML(value) { this.html = value; this.writes++; }, get innerHTML() { return this.html; },
       setAttribute(name, value) { this.attributes[name] = value; },
       remove() { root.children.splice(root.children.indexOf(this), 1); this.isConnected = false; } };
@@ -51,7 +51,7 @@ function assertFrame(dom, actors) {
     assert.equal(button.dataset.worldX, String(actor.x));
     assert.equal(button.dataset.worldY, String(actor.y));
     if (actor.eventId) { assert.equal(button.dataset.sceneEvent, actor.eventId); assert.equal(button.dataset.action, undefined); }
-    else { assert.equal(button.dataset.action, 'mail'); assert.equal(button.dataset.sceneEvent, undefined); }
+    else { assert.equal(button.dataset.action, 'claim'); assert.equal(button.dataset.sceneEvent, undefined); }
   }
 }
 
@@ -134,7 +134,7 @@ test('zero-member visitors remain actionable while expired, claimed and game-ove
   assert.deepEqual(state, before);
 });
 
-test('nested actor clicks target the exact event ID and sponsor clicks only open pending support', async () => {
+test('nested actor clicks target the exact event ID and sponsor clicks request direct collection', async () => {
   const state = fixture(), dom = markerDOM(state), eventIds = [], actions = [];
   dom.draw();
   const click = renderFunction('e', 'ownsSave', 'events', 'dispatch', `${functionLine('onClick')};return onClick(e);`);
@@ -145,7 +145,7 @@ test('nested actor clicks target the exact event ID and sponsor clicks only open
     await click(e, () => true, id => eventIds.push(id), action => actions.push(action));
   }
   assert.deepEqual(eventIds.sort(), state.events.map(item => item.id).sort());
-  assert.deepEqual(actions, ['mail'], 'opening a sponsor marker must not auto-claim or choose an arbitrary event');
+  assert.deepEqual(actions, ['claim'], 'clicking the gold marker explicitly collects pending support');
   const opened = [];
   const mail = renderFunction('state', 'summarize', 'open', 'icon', 'esc', 'fmt', `${functionLine('mail')};mail();`);
   mail(state, summarize, (...args) => opened.push(args), () => '', value => value, value => String(value));
@@ -318,8 +318,8 @@ test('maxEvents mixes world and character markers with exact choices, stable sur
       for (const actor of frame.filter(actor => actor.marker)) for (const other of frame.filter(other => other.id !== actor.id))
         assert.ok(Math.abs(actor.x - other.x) >= 85, `${actor.id} overlaps ${other.id} at ${time}`);
     }
-    assert.deepEqual(sponsorActions, ['mail', 'mail', 'mail']);
-    assert.equal(actions.length, 0, 'opening markers never chooses an option or claims support');
+    assert.deepEqual(sponsorActions, ['claim', 'claim', 'claim']);
+    assert.equal(actions.length, 0, 'event markers only open choices; sponsor collection is dispatched separately');
     assert.deepEqual(state, before);
 
     const selected = state.events.find(item => item.category === 'world');

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createGame, applyAction, migrateState, validateState, EVENTS, RULES, REGISTRATIONS } from '../src/engine.mjs';
 import * as scene from '../src/world.mjs';
+import { oldEvents } from './fixtures/legacy-events.mjs';
 
 const troublemaker = EVENTS.find(event => event.id === 'troublemaker');
 const snapshot = (kind = 'troublemaker', day = 10) => {
@@ -78,9 +79,10 @@ test('resolved, expired and game-over troublemakers disappear without changing t
 
 test('legacy v4 troublemaker snapshots render and migrate without new save fields or asset loss', () => {
   const old = fixture();
-  old.events = [snapshot()];
-  old.events[0].description = '争论正在升温，成员们希望站长维护友善的交流环境。';
-  old.events[0].options[1].description = '减少 1 位成员，氛围 +10。';
+  const definition = oldEvents.find(event => event.id === 'troublemaker');
+  old.events = [{ id: `event-${definition.category}-10`, kind: definition.id, category: definition.category,
+    createdDay: 10, expiresDay: 10 + RULES.eventExpiryDays, title: definition.title,
+    description: definition.description, options: structuredClone(definition.options) }];
   const saved = JSON.stringify(old), restored = JSON.parse(saved);
   assert.equal(validateState(restored), true);
   const before = actors(restored), migrated = migrateState(restored);
@@ -175,7 +177,7 @@ test('DOM reconciliation removes all stale actors in one refresh while preservin
   const root = { children: [], append(button) { this.children.push(button); } };
   const document = { createElement(tagName) {
     assert.equal(tagName, 'button');
-    return { dataset: {}, style: {}, attributes: {},
+    return { dataset: {}, style: {}, attributes: {}, querySelector() { return this.tip ??= {}; },
       setAttribute(name, value) { this.attributes[name] = value; },
       remove() { root.children.splice(root.children.indexOf(this), 1); } };
   } };

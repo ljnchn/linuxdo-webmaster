@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { pack } from './vendor/pack.mjs';
 import { configureManifest } from './config.mjs';
+import { RESIDENTS } from '../src/community-life.mjs';
 
 if (!process.versions.bun) throw new Error('请使用 bun mapp/build.mjs');
 const root = new URL('../', import.meta.url);
@@ -19,6 +20,9 @@ if (!result.success) throw new AggregateError(result.logs, '平台包构建失�
 const script = result.outputs.find(file => file.path.endsWith('.js'));
 const style = result.outputs.find(file => file.path.endsWith('.css'));
 if (!script || !style || result.outputs.length !== 2) throw new Error('预期单个 JS 和 CSS 文件');
+const avatarFiles = Object.fromEntries(await Promise.all(RESIDENTS.map(async person => [
+  person.avatar, await readFile(new URL(`public/${person.avatar}`, root)),
+])));
 const output = await pack({
   outputDirectory: fileURLToPath(new URL('dist/mapp-package/', root)),
   manifest,
@@ -28,7 +32,8 @@ const output = await pack({
     'app.css': Buffer.from(await style.arrayBuffer()),
     'strings.json': Buffer.from('{}'),
     'assets/community-sharing-day-v2.png': await readFile(new URL('public/assets/community-sharing-day-v2.png', root)),
+    ...avatarFiles,
   },
 });
+console.log(`${manifest.name} v${manifest.version}`);
 console.log(`App ZIP: ${output.file} (${output.size} bytes), SHA-256 ${output.zipSha256}`);
-console.log('同一运行包用于沙箱与正式版。');

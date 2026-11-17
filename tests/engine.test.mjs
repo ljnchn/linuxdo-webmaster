@@ -69,7 +69,7 @@ test('event resolution uses canonical effects, expires exactly, pays only once',
 });
 test('world release has separate category and fixed fictional cycle',()=>{
  let s=until(createGame(),12);const world=s.events.find(e=>e.kind==='model');assert.ok(world);assert.equal(world.category,'world');assert.equal(world.createdDay,12);assert.equal(s.nextWorldEventDay,24);
- assert.match(world.description,/虚构/);s=act(s,{type:'resolve',eventId:world.id,optionId:'digest'});assert.equal(validateState(s),true);
+ assert.doesNotMatch(world.description,/虚构|模拟/);s=act(s,{type:'resolve',eventId:world.id,optionId:'digest'});assert.equal(validateState(s),true);
 });
 test('deterministic simulation survives long play with consistent caps and bounded queues',()=>{
  function run(){let s=createGame('测试',123);for(let i=0;i<180;i++){

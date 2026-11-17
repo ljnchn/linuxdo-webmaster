@@ -13,10 +13,11 @@ const initial=createChallengeGame('原社区',17,'保留口号');
 function harness(transport){
  const clock=createClock({periodMs:20000,speed:4,progressMs:1000,active:true,now:performance.now()}),messages=[];
  const factory=new Function('transport','initial','clock','migrateState','validateState','RULES','messages',`
- let state=structuredClone(initial),busy=false,speed=4,started=true,pendingRestartRequest=null,pendingClockActive=null,serverBackup=null;const unlocked=new Map(),ACHIEVEMENTS=[],logText=s=>s;
+ let state=structuredClone(initial),busy=false,disconnected=false,lastSyncedAt=0,speed=4,started=true,pendingRestartRequest=null,pendingClockActive=null,serverBackup=null;const unlocked=new Map(),ACHIEVEMENTS=[],logText=s=>s;
  const local=false,ownsSave=()=>true,notify=(message)=>messages.push(message),redraw=()=>{},save=()=>{},setClockActive=async()=>{};
+ const showDisconnected=()=>{disconnected=true;pendingClockActive=null;clock.setActive(false,performance.now());};
  ${actSource}
- return {act,inspect:()=>({state,busy,speed,started,unlocked:[...unlocked],pendingRestartRequest,serverBackup,clockSpeed:clock.speed,clockActive:clock.active,credit:clock.progressMs})};`);
+ return {act,allowReconnect:()=>{disconnected=false;},inspect:()=>({state,busy,speed,started,disconnected,unlocked:[...unlocked],pendingRestartRequest,serverBackup,clockSpeed:clock.speed,clockActive:clock.active,credit:clock.progressMs})};`);
  return {...factory(transport,initial,clock,migrateState,validateState,RULES,messages),messages};
 }
 const fresh=applyAction(initial,{type:'restart',confirmed:true});
@@ -59,7 +60,7 @@ test('uncertain restart locks other writes and retries original key even after r
 });
 test('unreachable state recovery keeps pending request instead of issuing a fresh restart',async()=>{
  const calls=[];const h=harness({sendAction:async request=>{calls.push(structuredClone(request));throw Error('offline');},getState:async()=>{throw Error('offline');}});
- await h.act({type:'restart',confirmed:true});await h.act({type:'restart',confirmed:true});assert.equal(calls.length,4);for(const call of calls)assert.deepEqual(call,calls[0]);assert.equal(h.inspect().busy,false);assert.match(h.messages.at(-1),/重新连接确认结果/);
+ await h.act({type:'restart',confirmed:true});await h.act({type:'restart',confirmed:true});assert.equal(calls.length,2);assert.equal(h.inspect().disconnected,true);for(const call of calls)assert.deepEqual(call,calls[0]);assert.equal(h.inspect().busy,false);assert.match(h.messages.at(-1),/重新连接确认结果/);
 });
 test('ordinary error recovery synchronizes server speed and clock speed',async()=>{
  const h=harness({sendAction:async()=>{throw Error('conflict');},getState:async()=>({state:initial,timing:{speed:2,creditMs:400}})});
@@ -87,7 +88,7 @@ test('definite precommit rejection skips replay, refreshes state and waits for n
 test('definite rejection with failed state refresh stays locked until state can be confirmed',async()=>{
  const calls=[];let online=false;const h=harness({sendAction:async request=>{calls.push(structuredClone(request));throw Object.assign(Error('conflict'),{code:'REVISION_CONFLICT'});},getState:async()=>{if(!online)throw Error('offline');return {state:initial,timing:{speed:1,creditMs:0}};}});
  assert.equal(await h.act({type:'restart',confirmed:true}),false);assert.ok(h.inspect().pendingRestartRequest);assert.equal(calls.length,1);
- online=true;assert.equal(await h.act({type:'restart',confirmed:true}),false);assert.deepEqual(calls[0],calls[1]);assert.equal(h.inspect().pendingRestartRequest,null);
+ online=true;h.allowReconnect();assert.equal(await h.act({type:'restart',confirmed:true}),false);assert.deepEqual(calls[0],calls[1]);assert.equal(h.inspect().pendingRestartRequest,null);
 });
 test('semantic rejection of exact retry resolves earlier uncertainty; auth and internal errors do not',async()=>{
  for(const code of ['REVISION_CONFLICT','INVALID_PLATFORM_REQUEST','INTERNAL_ERROR']){

@@ -45,6 +45,9 @@ test('SDK initialization reports failures and only signals lifecycle after a suc
         assert.deepEqual(calls, [
           'handshake', ['storage', { timeoutMs: 15_000 }],
           ['asset', 'assets/community-sharing-day-v2.png', { timeoutMs: 15_000 }],
+          ['asset', 'assets/avatars/neo.jpg', { timeoutMs: 15_000 }],
+          ['asset', 'assets/avatars/smnet.jpg', { timeoutMs: 15_000 }],
+          ['asset', 'assets/avatars/syokatu.jpg', { timeoutMs: 15_000 }],
           'render', 'lifecycle',
         ]);
         assert.equal(notices.length, 0);

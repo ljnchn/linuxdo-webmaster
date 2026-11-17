@@ -11,7 +11,7 @@ import {goalsMarkup,storyMarkup,financeMarkup,residentsMarkup,reviewsMarkup,spec
 import {getSceneActors} from '../src/world.mjs';
 import {createStore} from '../server/store.mjs';
 import {identityKey,validateInput} from '../server/protocol.mjs';
-const ready=patch=>({...createGame('成长小站',412),members:120,communityLevel:5,serverId:'block',cash:10000,registration:'closed',...patch});
+const ready=patch=>({...createGame('成长小站',412),members:120,communityLevel:10,serverId:'block',cash:10000,registration:'closed',...patch});
 const tick=s=>applyAction(s,{type:'tick',periods:1});
 const until=(s,day)=>{while(s.day<day&&!s.gameOver)s=tick(s);return s;};
 const activity=(s,id)=>applyAction(s,{type:'activity',activityId:id});
@@ -20,9 +20,9 @@ const story=(s,id,optionId)=>applyAction(s,{type:'story',residentId:id,optionId}
 test('old snapshots stay exact and new growth extends through all server tiers',()=>{
  const old=ready(),before=structuredClone(old);assert.deepEqual(migrateState(old),old);assert.equal(Object.hasOwn(old,'life'),false);
  communityGoals(old);lifeOf(old);residentStatus(old,'he');assert.deepEqual(old,before);
- for(const [members,level] of [[120,5],[249,5],[250,6],[500,7],[1000,8],[1500,9]])assert.equal(communityProgress(ready({members,serverId:'city'})).level,level);
- const peak=applyAction(ready({members:1000,serverId:'city'}),{type:'rename',name:'千人站'});
- assert.equal(communityProgress({...peak,members:5,history:[]}).level,8);
+ for(const [members,level] of [[120,5],[249,5],[250,6],[500,7],[750,8],[1000,9],[1500,10]])assert.equal(communityProgress(ready({members,serverId:'city',communityLevel:1})).level,level);
+ const peak=applyAction(ready({members:1000,serverId:'city',communityLevel:1}),{type:'rename',name:'千人站'});
+ assert.equal(communityProgress({...peak,members:5,history:[]}).level,9);
  assert.ok(communityGoals(peak).some(goal=>goal.target===1500));
 });
 for(const [id,days] of Object.entries(PROJECT_DAYS))test(id+' settles once on the game clock and not at start',()=>{
@@ -60,7 +60,7 @@ test('all resident stories enforce stage, cost and wait, remember choices and un
   for(let step=0;step<3;step++){
    const status=residentStatus(s,resident.id),option=status.options[0],before=structuredClone(s);
    assert.throws(()=>story(s,resident.id,'forged'));assert.deepEqual(s,before);
-   if(option.cost)assert.throws(()=>story({...s,cash:0},resident.id,option.id),/星币不足/);
+   if(option.cost)assert.throws(()=>story({...s,cash:0},resident.id,option.id),/刀不够/);
    s=story(s,resident.id,option.id);assert.equal(s.life.stories[resident.id].choices.length,step+1);
    assert.ok(residentStatus(s,resident.id).memory.includes(option.label));assert.equal(validateState(s),true);
    if(step<2){assert.throws(()=>story(s,resident.id,resident.steps[step+1].options[0].id),/2 天/);s=until(s,s.day+2);}
@@ -110,13 +110,13 @@ test('life state rejects invented rewards, invalid choices, future dates and inc
 });
 test('economic previews include rent amortization and do not imply immediate sponsor receipts',()=>{
  const s=ready({members:60,patrons:3,serverId:'nest',difficulty:'challenge'}),before=structuredClone(s);
- const old=operatingForecast(s),next=operatingForecast(s,'block');assert.equal(old.maintenance,31);assert.equal(old.rent,8);assert.equal(next.maintenance,36);assert.equal(next.rent,18);assert.equal(next.net,300/7-54);
- assert.match(financeMarkup(s,'block'),/−11.1|\-11.1/);assert.match(financeMarkup(s),/不会每日再扣/);assert.deepEqual(s,before);
+ const old=operatingForecast(s),next=operatingForecast(s,'block');assert.equal(old.maintenance,19);assert.equal(old.rent,8);assert.equal(next.maintenance,22);assert.equal(next.rent,18);assert.equal(next.net,300/7-40);
+ assert.match(financeMarkup(s,'block'),/\+2.9/);assert.match(financeMarkup(s),/不会每日再扣/);assert.deepEqual(s,before);
 });
 test('life panels expose real goals, locks, story choices and earned honors; actors grow without mutating saves',()=>{
  const start=createGame(),high=ready({members:1000,serverId:'city',communityLevel:8}),before=structuredClone(high);
  assert.match(goalsMarkup(start),/迎接第一位佬友/);assert.match(storyMarkup(start,'juan'),/Lv.3 相遇/);
- assert.match(storyMarkup(high,'juan'),/data-story-option="repair"/);assert.match(residentsMarkup(high),/小禾|阿卷|阿策/);assert.match(reviewsMarkup(high),/月度|评选/);
+ assert.match(storyMarkup(high,'juan'),/data-story-option="repair"/);assert.match(residentsMarkup(high),/Neo|神墨|诸葛亮/);assert.match(reviewsMarkup(high),/月度|评选/);
  const lowActors=getSceneActors(ready({members:30}),0,true),highActors=getSceneActors(high,0,true);
  assert.ok(highActors.filter(a=>a.role==='member').length>lowActors.filter(a=>a.role==='member').length);
  assert.equal(highActors.filter(a=>a.role==='resident').length,3);assert.deepEqual(high,before);

@@ -77,8 +77,8 @@ test('all twenty current events display clean copy without mutating any trusted 
     assert.equal(validateState(next), true);
     assert.equal(next.cash, state.cash - definition.options[1].cost + definition.options[1].rewards.cash);
   }
-  assert.ok(EVENTS.filter(event => event.category === 'world').every(event => /虚构/.test(event.description)),
-    'presentation cleanup must not rewrite immutable canonical engine snapshots');
+  assert.ok(EVENTS.filter(event => event.category === 'world').every(event => !/虚构|模拟/.test(event.description)),
+    'canonical event copy stays in-world and keeps the reader in the fiction');
 });
 
 test('all five historical v4/v3 snapshots retain validation and exact outcomes while using clean event display copy', () => {

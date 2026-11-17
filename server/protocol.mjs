@@ -1,6 +1,6 @@
 import { HttpError } from './errors.mjs';
 import { applyAction, RULES, BUILDING_ACTIVITIES } from '../src/engine.mjs';
-export const PERIOD_MS = RULES.secondsPerPeriod * 1000, HEARTBEAT_TIMEOUT_MS = 4000;
+export const PERIOD_MS = RULES.secondsPerPeriod * 1000, HEARTBEAT_TIMEOUT_MS = RULES.heartbeatTimeoutMs;
 const fields = {tick:['periods'],rent:['serverId','months'],renew:['months'],registration:['value'],strategy:['strategy'],resolve:['eventId','optionId'],activity:['activityId'],story:['residentId','optionId'],specialty:['specialtyId'],claim:['id'],rename:['name'],restart:[],heartbeat:['active'],speed:['value']};
 export function validateInput(body) {
  if (!body || Array.isArray(body) || typeof body !== 'object' || Object.keys(body).sort().join() !== 'action,idempotencyKey,revision') throw new HttpError(400,'INVALID_BODY');
