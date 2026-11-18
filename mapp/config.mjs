@@ -12,6 +12,8 @@ export function configureManifest(template, { publicOrigin = 'https://linux-do-w
     getState: { url: `${origin.origin}/api/state`, method: 'GET', auth: 'platform' },
     sendAction: { url: `${origin.origin}/api/actions`, method: 'POST', auth: 'platform' },
     getLeaderboard: { url: `${origin.origin}/api/leaderboard`, method: 'GET', query: ['sort'], auth: 'platform' },
+    getTelevision: { url: `${origin.origin}/api/television`, method: 'GET', auth: 'platform' },
+    setTelevision: { url: `${origin.origin}/api/television`, method: 'POST', auth: 'platform' },
   };
   return manifest;
 }

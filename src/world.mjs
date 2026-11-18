@@ -1,15 +1,16 @@
 /* Original pixel characters plus commissioned original environment. Rendering never changes rules. */
 import {CHARACTER_ATTENTION_KINDS,BUILDING_UNLOCKS} from './engine.mjs';
-import {communityProgress,RESIDENTS,RESIDENT_PLACES,residentStatus,lifeOf,buildingMastery} from './community-life.mjs';
+import {communityProgress,RESIDENTS,RESIDENT_PLACES,isMentor,lifeOf,buildingMastery} from './community-life.mjs';
 export const WORLD_WIDTH=2823, WORLD_HEIGHT=941;
 export const ACTIVITY_PLACES=Object.freeze({benefits:1850,resources:2410});
 // The original street retains its coordinates; sharing houses extend it to the right.
-// The former document kiosk is now a non-interactive garden and rest area.
+// The compact badge pavilion sits in the garden between the server and the market.
 export const ORIGINAL_OFFSET=0, DEFAULT_SCENE_CENTER=790;
 export const SCENE_BUILDINGS=Object.freeze([
  {id:'board',name:'社区公告',action:'events',x:145,y:460,w:295,h:265,labelX:290,labelY:512},
  {id:'cafe',name:'搞七捻三',action:'hall',x:443,y:355,w:638,h:370,labelX:790,labelY:504},
  {id:'server',name:'开发调优',action:'server',x:1105,y:443,w:235,h:282,labelX:1224,labelY:518},
+ {id:'museum',name:'徽章馆',action:'achievements',x:1346,y:430,w:238,h:295,labelX:1465,labelY:562},
  {id:'benefits',name:'福利羊毛',action:'benefits',x:1590,y:295,w:580,h:430,labelX:1890,labelY:488},
  {id:'resources',name:'资源荟萃',action:'resources',x:2210,y:235,w:570,h:490,labelX:2514,labelY:488}
 ].map(Object.freeze));
@@ -85,7 +86,7 @@ function communityActors(state,time,reduced,marked){
 export function getSceneActors(state,time=0,reduced=false){
  const now=Number.isFinite(time)?time:0,marked=markedActors(state,now,reduced);
  const level=communityProgress(state).level;
- const residents=state.gameOver?[]:RESIDENTS.filter(person=>level>=person.level).map(person=>({id:'resident:'+person.id,role:'resident',residentId:person.id,x:RESIDENT_PLACES[person.id],y:748,style:person.style,mentor:residentStatus(state,person.id).complete}));
+ const residents=state.gameOver?[]:RESIDENTS.filter(person=>level>=person.level).map(person=>({id:'resident:'+person.id,role:'resident',residentId:person.id,x:RESIDENT_PLACES[person.id],y:748,style:person.style,mentor:isMentor(lifeOf(state).stories[person.id])}));
  const staff=state.gameOver?[]:Object.entries(ACTIVITY_PLACES).flatMap(([building,x])=>{const project=lifeOf(state).projects[building],hosting=project&&state.day>project.startedDay;return level<BUILDING_UNLOCKS[building]?[]:Array.from({length:project?hosting?4:2:1},(_,i)=>({id:`staff:${building}:${i}`,role:'staff',x:x+i*58+(reduced||i===0?0:Math.round(Math.sin(now/2200+i)*7)),y:hosting?690+i%2*38:700+i%2*25,style:4+i}));});
  return [...communityActors(state,now,reduced,marked),{id:'host',role:'host',x:772,y:748,style:0,patron:false},...marked,...staff,...residents];
 }
@@ -95,10 +96,18 @@ export function getCommunityActors(state,time=0,reduced=false){
 export const ROOM_LAYOUT=Object.freeze([
  ['development','开发调优','server'],['alternatives','国产替代','workshop'],['resources','资源荟萃','resources'],['documentation','文档共建','workshop'],['careers','非我莫属','hall'],['reading','读书成诗','workshop'],['news','前沿快讯','workshop'],['memory','网络记忆','workshop'],['benefits','福利羊毛','benefits'],['offtopic','搞七捻三','cafe'],['square','虫洞广场','hall'],['feedback','运营反馈','events']
 ].map(([id,name,action],i)=>Object.freeze({id,name,action,x:170+(i%4)*340,y:500+Math.floor(i/4)*70,w:260,h:60})));
-export function createWorld(canvas,getState,onBuilding,onFrame,sceneUrl='assets/community-sharing-day-v2.png'){
+export function createWorld(canvas,getState,onBuilding,onFrame,sceneUrl='assets/community-sharing-day-v2.png',getGuestNames=()=>[],museumUrl='assets/badge-museum.png'){
  const ctx=canvas.getContext('2d');canvas.width=WORLD_WIDTH;canvas.height=WORLD_HEIGHT;ctx.imageSmoothingEnabled=false;
  const media=matchMedia('(prefers-reduced-motion: reduce)');let reduced=media.matches,running=true,raf=0,last=0;
- const bg=typeof Image!=='undefined'?new Image():null;if(bg){bg.src=sceneUrl;bg.onload=()=>{if(running)draw(reduced?0:performance.now())}}
+ const museum=SCENE_BUILDINGS.find(building=>building.id==='museum');
+ function loadSprite(url){
+  if(typeof Image==='undefined')return null;
+  const image=new Image();
+  image.onload=()=>{if(running)draw(reduced?0:performance.now());};
+  image.src=url;
+  return image;
+ }
+ const bg=loadSprite(sceneUrl),museumImage=loadSprite(museumUrl);
  const r=(x,y,w,h,c)=>{ctx.fillStyle=c;ctx.fillRect(Math.round(x),Math.round(y),w,h)};
  function person(x,y,i,t,patron=false,trouble=false){
   const c=trouble?'#52616b':['#e6ac32','#3886bb','#bf637d','#6c9a76','#9a7eb6','#dc774e'][i%6],skin=['#edc196','#f3d0af','#c99870'][i%3],hair=['#292e36','#674734','#40372f','#bc6d51'][i%4];
@@ -121,6 +130,7 @@ export function createWorld(canvas,getState,onBuilding,onFrame,sceneUrl='assets/
   if(!running)return;
   const s=getState();r(0,0,WORLD_WIDTH,WORLD_HEIGHT,'#90c9ed');if(bg?.complete&&bg.naturalWidth)ctx.drawImage(bg,0,0,WORLD_WIDTH,WORLD_HEIGHT);
   const level=communityProgress(s).level;
+  if(museumImage?.complete&&museumImage.naturalWidth)ctx.drawImage(museumImage,museum.x,museum.y,museum.w,museum.h);
   for(const building of SCENE_BUILDINGS.filter(b=>['benefits','resources'].includes(b.id))){
    const required=BUILDING_UNLOCKS[building.id];
    if(level<required){
@@ -144,8 +154,10 @@ export function createWorld(canvas,getState,onBuilding,onFrame,sceneUrl='assets/
     }
    }
   }
-  const serverTier=['nest','block','town','city'].indexOf(s.serverId);
-  for(let i=0;i<serverTier;i++){r(1130+i*62,393-i*28,54,155+i*28,'#5b6d6c');r(1136+i*62,401-i*28,42,135+i*28,'#304e55');for(let row=0;row<5+i;row++){r(1140+i*62,410-i*28+row*24,34,15,'#83958c');r(1163+i*62,414-i*28+row*24,5,5,'#eed17c');}}
+  if(s.serverId==='space'){
+   r(1200,277,10,58,'#6a7377');r(1172,266,66,12,'#8ca4ae');r(1182,278,45,10,'#5e7887');
+   r(1276,130,28,22,'#d4bd83');r(1239,134,34,13,'#426c8c');r(1307,134,34,13,'#426c8c');
+  }
   if(level>=4)for(const x of [380,1050,2160]){r(x,872,90,12,'#bd8859');r(x+8,884,10,20,'#684d39');r(x+72,884,10,20,'#684d39');}
   if(level>=6)for(const x of [140,1590,2740]){r(x,844,60,45,'#a77554');r(x-8,828,76,22,'#6d985b');for(let i=0;i<5;i++)r(x+5+i*11,822+(i%2)*7,9,9,'#e9b95d');}
   if(lifeOf(s).awards.length){r(590,430,240,35,'#b87538');for(let i=0;i<lifeOf(s).awards.length;i++)r(650+i*45,439,18,18,'#f6d16d');}
@@ -153,6 +165,21 @@ export function createWorld(canvas,getState,onBuilding,onFrame,sceneUrl='assets/
   if(s.timeSlot===2){r(0,0,WORLD_WIDTH,WORLD_HEIGHT,'#19244480');for(let i=0;i<58;i++)r((i*127+54)%WORLD_WIDTH,40+(i*43)%190,3,3,'#fff3c7');for(const x of [70,519,1380,1755,2210,2470]){ctx.fillStyle='#ffd87735';ctx.beginPath();ctx.arc(x,520,35,0,Math.PI*2);ctx.fill()}}
   const actors=getSceneActors(s,t,reduced);
   for(const actor of actors){person(actor.x,actor.y,actor.style,t,actor.patron,actor.trouble);if(actor.mentor){r(actor.x+16,actor.y-56,10,20,'#e9bc56');r(actor.x+11,actor.y-51,20,10,'#f6d886');}}
+  const guests=getGuestNames();
+  if(guests.length&&!s.gameOver){
+   const walkers=actors.filter(actor=>actor.role==='member').sort((a,b)=>a.x-b.x);
+   const count=Math.min(3,walkers.length,guests.length),phase=s.day*3+s.timeSlot;
+   ctx.save();ctx.font='600 16px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
+   for(let i=0;i<count;i++){
+    const walker=walkers[Math.floor(i*walkers.length/count)];
+    const name=guests[(phase+i)%guests.length];
+    const width=Math.min(184,Math.ceil(ctx.measureText(name).width)+18);
+    const x=Math.max(width/2,Math.min(WORLD_WIDTH-width/2,walker.x+21)),y=walker.y-79;
+    r(x-width/2,y,width,24,'#69583f');r(x-width/2+2,y+2,width-4,20,'#fff1cd');
+    ctx.fillStyle='#614b2e';ctx.fillText(name,x,y+12,width-12);
+   }
+   ctx.restore();
+  }
   if(s.gameOver)r(0,0,WORLD_WIDTH,WORLD_HEIGHT,'#26313d50');
   onFrame?.(actors);
  }

@@ -9,7 +9,7 @@ import {createStore} from '../server/store.mjs';
 import {identityKey,validateInput} from '../server/protocol.mjs';
 import {renderFunction} from './fixtures/render-function.mjs';
 
-const state=members=>({...createGame('建筑开放',987),members,serverId:members>500?'city':members>180?'town':members>60?'block':'nest'});
+const state=members=>({...createGame('建筑开放',987),cash:5000,members,serverId:members>1500?'region':members>500?'city':members>180?'town':members>60?'block':'nest'});
 const activity=(s,id)=>applyAction(s,{type:'activity',activityId:id});
 const app=await readFile(new URL('../src/app.mjs',import.meta.url),'utf8');
 const source=name=>app.split('\n').find(line=>line.trimStart().startsWith(`function ${name}(`));
@@ -20,7 +20,7 @@ const panel=(s,building)=>{
 };
 
 test('community levels and every activity enforce exact member thresholds with no mutation on rejection',()=>{
- assert.deepEqual(COMMUNITY_LEVELS.map(v=>v.members),[0,10,30,60,120,250,500,750,1000,1500]);
+ assert.deepEqual(COMMUNITY_LEVELS.map(v=>v.members),[0,8,24,50,100,200,450,750,1000,1500,3000,8000,20000]);
  for(const definition of BUILDING_ACTIVITIES){
   const threshold=COMMUNITY_LEVELS[definition.requiredLevel-1].members;
   for(const members of [threshold-1,threshold]){
@@ -33,10 +33,10 @@ test('community levels and every activity enforce exact member thresholds with n
    assert.deepEqual(s,before);
   }
  }
- assert.equal(activityStatus(state(9),'benefits').unlocked,false);
- assert.equal(activityStatus(state(10),'benefits').unlocked,true);
- assert.equal(activityStatus(state(29),'resources').unlocked,false);
- assert.equal(activityStatus(state(30),'resources').unlocked,true);
+ assert.equal(activityStatus(state(7),'benefits').unlocked,false);
+ assert.equal(activityStatus(state(8),'benefits').unlocked,true);
+ assert.equal(activityStatus(state(23),'resources').unlocked,false);
+ assert.equal(activityStatus(state(24),'resources').unlocked,true);
 });
 
 test('levels persist through member loss and history rollover; restart resets them and migration preserves saves',()=>{
@@ -54,13 +54,13 @@ test('levels persist through member loss and history rollover; restart resets th
  const fresh=applyAction(saved,{type:'restart',confirmed:true});
  assert.equal(communityProgress(fresh).level,1);
  assert.equal(activityStatus(fresh,'benefits').unlocked,false);
- for(const value of [0,11,1.5,'5',null])assert.equal(validateState({...state(1),communityLevel:value}),false);
+ for(const value of [0,14,1.5,'5',null])assert.equal(validateState({...state(1),communityLevel:value}),false);
 });
 
 test('locked buildings show requirements rather than action buttons; later activity tiers remain disabled',()=>{
  for(const building of ['benefits','resources']){
   const html=panel(state(0),building);
-  assert.match(html,/这条街还没热闹起来/);assert.match(html,/还差 (10|30) 位/);
+  assert.match(html,/这条街还没热闹起来/);assert.match(html,/还差 (8|24) 位/);
   assert.doesNotMatch(html,/data-activity=/);
  }
  const benefits=panel(state(10),'benefits');
@@ -69,7 +69,7 @@ test('locked buildings show requirements rather than action buttons; later activ
  assert.match(benefits,/Lv\.4 解锁/);
  const resources=panel(state(1500),'resources');
  for(const id of ['resources-software','resources-book','resources-repository','resources-course'])assert.match(resources,new RegExp(`data-activity="${id}"\\s+aria-label`));
- const earlier=panel(state(29),'resources');
+ const earlier=panel(state(23),'resources');
  assert.doesNotMatch(earlier,/data-activity=/);assert.match(earlier,/还差 1 位/);
 });
 

@@ -6,6 +6,8 @@
 
 人物由 `src/world.mjs` 中的 Canvas 绘制逻辑生成。Linux.do 主题标记用于非官方同人游戏。
 
+`badge-museum.png` 是用内置 imagegen 生成的透明像素建筑。提示词要点：正视双层徽章博物馆、绿铜屋顶、红砖与浅色石材、屋脊勋章、金色灯光橱窗和入口台阶。招牌文字由界面绘制。
+
 `assets/avatars/neo.jpg`、`assets/avatars/smnet.jpg`、`assets/avatars/syokatu.jpg` 分别取自 Linux.do 管理团队页面（https://linux.do/about）中 Neo、神墨、诸葛亮的公开头像，于 2026-11-16 下载为 96×96 JPEG。头像版权归原作者所有，仅用于非官方同人游戏的角色展示，不用于商业用途；头像随微应用打包，运行时不请求外链。
 
 `src/music.mjs` 的《小站午后》为本项目创作的 16 小节 D 大调合成配乐，76 BPM，通过 Web Audio 生成，不包含第三方录音或外部音源。音乐默认关闭，由玩家点击开启。

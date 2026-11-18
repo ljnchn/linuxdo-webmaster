@@ -14,7 +14,7 @@ function rig(path=':memory:'){let time=100000,n=0;const store=createStore(path,'
 test('atomic idempotency, persistence, channel and identity isolation, leaderboard',async()=>{
  const dir=mkdtempSync(join(tmpdir(),'game-v3-')),path=join(dir,'test.sqlite');let store=createStore(path,'sandbox');
  try{
-  assert.equal((await store.get(alice)).state.cash,760);
+  assert.equal((await store.get(alice)).state.cash,480);
   const first=await store.act(alice,input());assert.equal(first.revision,1);assert.deepEqual(await store.act(alice,input()),first);
   await assert.rejects(store.act(alice,input(0,'unique-operation-0002')),e=>e.code==='REVISION_CONFLICT');
   await assert.rejects(store.act(alice,input(1)),e=>e.code==='IDEMPOTENCY_CONFLICT');
@@ -68,7 +68,7 @@ test('finished snapshot immutable, restart keeps best historical score',async()=
  const finished=await r.store.get(alice);assert.equal(finished.state.gameOver,true);assert.equal(finished.state.day,30);
  for(const action of [{type:'rename',name:'篡改'},{type:'heartbeat',active:true},{type:'claim',id:'all'},{type:'renew',months:1}])await assert.rejects(r.action(action),e=>e.code==='RUN_FINISHED');
  const db=new DatabaseSync(path),snapshot=db.prepare('SELECT * FROM completed_runs').get();assert.equal(snapshot.days,30);
- const op=input(finished.revision,'restart-safe-operation',{type:'restart'}),restarted=await r.store.act(alice,op);assert.equal(restarted.revision,finished.revision+1);assert.equal(restarted.state.cash,760);assert.equal(restarted.state.members,0);assert.deepEqual(await r.store.act(alice,op),restarted);
+ const op=input(finished.revision,'restart-safe-operation',{type:'restart'}),restarted=await r.store.act(alice,op);assert.equal(restarted.revision,finished.revision+1);assert.equal(restarted.state.cash,480);assert.equal(restarted.state.members,0);assert.deepEqual(await r.store.act(alice,op),restarted);
  assert.deepEqual(db.prepare('SELECT * FROM completed_runs').get(),snapshot);assert.equal((await r.store.leaderboard('days')).entries[0].days,30);db.close();
  }finally{r.store.close();rmSync(dir,{recursive:true,force:true});}
 });

@@ -28,6 +28,14 @@ export function createApp({ store, auth }) {
       if (identity.channel !== auth.channel) throw new HttpError(401, 'CHANNEL_MISMATCH');
       if (req.method === 'GET' && url.pathname === '/api/state' && !url.search) return send(200, await store.get(identity));
       if (req.method === 'POST' && url.pathname === '/api/actions' && !url.search) return send(200, await store.act(identity, await readJson(req)));
+      if(url.pathname==='/api/television'&&!url.search){
+        if(req.method==='GET')return send(200,await store.television(identity));
+        if(req.method==='POST'){
+          const body=await readJson(req);
+          if(!body||Object.keys(body).join()!=='enabled'||typeof body.enabled!=='boolean')throw new HttpError(400,'INVALID_PREFERENCE');
+          return send(200,await store.setTelevision(identity,body.enabled));
+        }
+      }
       if (req.method === 'GET' && url.pathname === '/api/leaderboard') {
         if ([...url.searchParams.keys()].some(k => k !== 'sort') || url.searchParams.getAll('sort').length > 1) throw new HttpError(400, 'INVALID_QUERY');
         return send(200, await store.leaderboard(url.searchParams.get('sort') || 'members'));

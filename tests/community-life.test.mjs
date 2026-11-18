@@ -6,12 +6,12 @@ import {join} from 'node:path';
 import {DatabaseSync} from 'node:sqlite';
 import {createGame,createChallengeGame,applyAction,validateState,migrateState,activityStatus,BUILDING_ACTIVITIES,operatingForecast} from '../src/engine.mjs';
 import {lifeOf,RESIDENTS,PROJECT_DAYS,communityProgress,communityGoals,residentStatus,buildingMastery,activityBenefits} from '../src/community-life.mjs';
-import {earnedAchievements} from '../src/achievements.mjs';
+import {achievementMetrics,earnedAchievements} from '../src/achievements.mjs';
 import {goalsMarkup,storyMarkup,financeMarkup,residentsMarkup,reviewsMarkup,specialtyMarkup} from '../src/life-ui.mjs';
 import {getSceneActors} from '../src/world.mjs';
 import {createStore} from '../server/store.mjs';
 import {identityKey,validateInput} from '../server/protocol.mjs';
-const ready=patch=>({...createGame('成长小站',412),members:120,communityLevel:10,serverId:'block',cash:10000,registration:'closed',...patch});
+const ready=patch=>({...createGame('成长小站',412),members:120,communityLevel:13,serverId:'block',cash:10000,registration:'closed',...patch});
 const tick=s=>applyAction(s,{type:'tick',periods:1});
 const until=(s,day)=>{while(s.day<day&&!s.gameOver)s=tick(s);return s;};
 const activity=(s,id)=>applyAction(s,{type:'activity',activityId:id});
@@ -20,7 +20,7 @@ const story=(s,id,optionId)=>applyAction(s,{type:'story',residentId:id,optionId}
 test('old snapshots stay exact and new growth extends through all server tiers',()=>{
  const old=ready(),before=structuredClone(old);assert.deepEqual(migrateState(old),old);assert.equal(Object.hasOwn(old,'life'),false);
  communityGoals(old);lifeOf(old);residentStatus(old,'he');assert.deepEqual(old,before);
- for(const [members,level] of [[120,5],[249,5],[250,6],[500,7],[750,8],[1000,9],[1500,10]])assert.equal(communityProgress(ready({members,serverId:'city',communityLevel:1})).level,level);
+ for(const [members,level] of [[100,5],[199,5],[200,6],[450,7],[750,8],[1000,9],[1500,10],[3000,11],[8000,12],[20000,13]])assert.equal(communityProgress(ready({members,communityLevel:1})).level,level);
  const peak=applyAction(ready({members:1000,serverId:'city',communityLevel:1}),{type:'rename',name:'千人站'});
  assert.equal(communityProgress({...peak,members:5,history:[]}).level,9);
  assert.ok(communityGoals(peak).some(goal=>goal.target===1500));
@@ -65,10 +65,10 @@ test('all resident stories enforce stage, cost and wait, remember choices and un
    assert.ok(residentStatus(s,resident.id).memory.includes(option.label));assert.equal(validateState(s),true);
    if(step<2){assert.throws(()=>story(s,resident.id,resident.steps[step+1].options[0].id),/2 天/);s=until(s,s.day+2);}
   }
-  assert.equal(residentStatus(s,resident.id).complete,true);assert.throws(()=>story(s,resident.id,'anything'),/已完成/);
+  assert.equal(residentStatus(s,resident.id).mentor,true);assert.equal(residentStatus(s,resident.id).complete,false);assert.throws(()=>story(s,resident.id,'anything'),/5 天/);
  }
- assert.equal(activityBenefits(s,BUILDING_ACTIVITIES[0]).rewards.mood,4);
- assert.equal(activityBenefits(s,BUILDING_ACTIVITIES[3]).rewards.content,8);assert.equal(activityBenefits(s,BUILDING_ACTIVITIES[3]).cost,8);
+ assert.equal(activityBenefits(s,BUILDING_ACTIVITIES[0]).rewards.mood,7);
+ assert.equal(activityBenefits(s,BUILDING_ACTIVITIES[3]).rewards.content,13);assert.equal(activityBenefits(s,BUILDING_ACTIVITIES[3]).cost,29);
  assert.ok(earnedAchievements(s).some(a=>a.id==='resource-repair'));assert.ok(earnedAchievements(s).some(a=>a.id==='all-stories'));
 });
 test('earlier choices change the follow-up and final outcome',()=>{
@@ -78,6 +78,50 @@ test('earlier choices change the follow-up and final outcome',()=>{
  a=story(until(a,2),'juan','archive');b=story(until(b,2),'juan','archive');
  const optionA=residentStatus(until(a,4),'juan').options[0],optionB=residentStatus(until(b,4),'juan').options[0];
  assert.equal(optionA.rewards.content,optionB.rewards.content+2);assert.equal(optionB.rewards.mood,optionA.rewards.mood+1);
+});
+
+for(const person of RESIDENTS)test(person.name+' continues an old mentor save through chapter six and recurring visits',()=>{
+ const original=ready({serverDaysRemaining:240,serverPeriodsRemaining:720});
+ original.life=lifeOf(original);
+ const firstChoices=person.steps.slice(0,3).map(chapter=>chapter.options[0].id);
+ original.life.stories[person.id]={choices:firstChoices,day:0};
+ let s=migrateState(original),status=()=>residentStatus(s,person.id);
+ assert.deepEqual(s,original);
+ const other=structuredClone(s);other.life.stories[person.id].choices[2]=person.steps[2].options[1].id;
+ assert.notEqual(status().text,residentStatus(other,person.id).text,'chapter four remembers the old ending');
+ for(const [index,gap] of [5,9,14].entries()){
+  assert.equal(status().mentor,true);assert.equal(status().wait,gap);
+  s=until(s,s.day+gap-1);
+  assert.throws(()=>story(s,person.id,status().options[0].id),/1 天/);
+  s=until(s,s.day+1);assert.equal(status().canAct,true);
+  const option=status().options[1],before=s;
+  s=story(s,person.id,option.id);
+  assert.equal(s.cash,before.cash-option.cost);
+  assert.equal(s.life.stories[person.id].choices.length,4+index);
+  assert.match(status().memory,new RegExp(option.label));
+  assert.equal(achievementMetrics(s).stories,1);
+  assert.ok(activityStatus(s,person.building).mentors.some(mentor=>mentor.id===person.id));
+ }
+ assert.equal(status().complete,true);
+ const mainline=[...s.life.stories[person.id].choices],titles=[];
+ for(let visit=0;visit<4;visit++){
+  assert.equal(status().wait,person.visitDays);
+  s=until(s,s.day+person.visitDays+(visit===0?16:0)); // A missed appointment waits for the player.
+  assert.equal(status().visits,visit);assert.equal(status().canAct,true);
+  assert.match(residentsMarkup(s),/等你赴约/);
+  titles.push(status().title);
+  const option=status().options[visit%2],before=s;
+  s=story(s,person.id,option.id);
+  assert.equal(s.life.stories[person.id].visits,visit+1);
+  assert.equal(achievementMetrics(s).chapters,6);
+  assert.equal(s.mood,Math.min(100,before.mood+option.rewards.mood));
+  assert.deepEqual(s.life.stories[person.id].choices,mainline);
+  assert.deepEqual(migrateState(JSON.parse(JSON.stringify(s))),s);
+  assert.throws(()=>story(s,person.id,option.id),/天后/);
+ }
+ assert.equal(new Set(titles.slice(0,3)).size,3);assert.equal(titles[3],titles[0]);
+ const forged=structuredClone(s);forged.life.stories[person.id].lastVisit='unknown';assert.equal(validateState(forged),false);
+ const restarted=applyAction(s,{type:'restart',confirmed:true});assert.equal(residentStatus(restarted,person.id).visits,0);
 });
 test('specialties require level five, are fixed for the run and affect the real daily settlement',()=>{
  assert.throws(()=>applyAction(createGame(),{type:'specialty',specialtyId:'care'}),/Lv.5/);
@@ -92,9 +136,9 @@ test('building mastery comes from completed work and boosts the preview and earn
  let s=applyAction(ready(),{type:'renew',months:3});
  for(let i=0;i<8;i++){s=until(s,i*7);s=activity(s,'resources-software');}
  assert.deepEqual(buildingMastery(s,'resources'),{count:8,level:3,next:null});
- assert.equal(activityStatus(s,'resources').activities[0].rewards.content,6);
+ assert.equal(activityStatus(s,'resources').activities[0].rewards.content,9);
  const next=until(s,56),before={...next,content:10};
- assert.equal(activity(before,'resources-software').content,16);
+ assert.equal(activity(before,'resources-software').content,19);
 });
 test('monthly honors are evaluated at day boundaries only and never duplicated',()=>{
  let s=applyAction(ready({members:500,serverId:'town',mood:90,content:90}),{type:'renew',months:3});
@@ -110,8 +154,8 @@ test('life state rejects invented rewards, invalid choices, future dates and inc
 });
 test('economic previews include rent amortization and do not imply immediate sponsor receipts',()=>{
  const s=ready({members:60,patrons:3,serverId:'nest',difficulty:'challenge'}),before=structuredClone(s);
- const old=operatingForecast(s),next=operatingForecast(s,'block');assert.equal(old.maintenance,19);assert.equal(old.rent,8);assert.equal(next.maintenance,22);assert.equal(next.rent,18);assert.equal(next.net,300/7-40);
- assert.match(financeMarkup(s,'block'),/\+2.9/);assert.match(financeMarkup(s),/不会每日再扣/);assert.deepEqual(s,before);
+ const old=operatingForecast(s),next=operatingForecast(s,'block');assert.equal(old.maintenance,13);assert.equal(old.rent,8);assert.equal(next.maintenance,18);assert.equal(next.rent,18);assert.equal(next.net,300/7-36);
+ assert.match(financeMarkup(s,'block'),/\+6\.9/);assert.match(financeMarkup(s),/不会每日再扣/);assert.deepEqual(s,before);
 });
 test('life panels expose real goals, locks, story choices and earned honors; actors grow without mutating saves',()=>{
  const start=createGame(),high=ready({members:1000,serverId:'city',communityLevel:8}),before=structuredClone(high);

@@ -10,7 +10,7 @@ import {validateInput,transition,identityKey} from '../server/protocol.mjs';
 import {createStore} from '../server/store.mjs';
 import {PROJECT_DAYS} from '../src/community-life.mjs';
 
-const ready=(patch={})=>({...createGame('活动测试',12345),members:20,patrons:1,communityLevel:10,...patch});
+const ready=(patch={})=>({...createGame('活动测试',12345),members:20,patrons:1,cash:5000,communityLevel:13,...patch});
 const run=(s,activityId)=>applyAction(s,{type:'activity',activityId});
 const tick=s=>applyAction(s,{type:'tick',periods:1});
 const until=(s,day)=>{while(s.day<day&&!s.gameOver)s=tick(s);return s;};
@@ -20,20 +20,22 @@ const input=(revision,action,key='building-activity-operation-0001')=>({revision
 const snapshot=s=>JSON.stringify(s);
 
 const expected=[
- ['benefits-free-list','benefits','整理限免清单',0,0,3,2],
- ['benefits-badge-draw','benefits','社区徽章抽奖',15,2,7,0],
- ['resources-software','resources','软件分享',0,0,0,4],
- ['resources-repository','resources','开源仓库共读',10,0,1,7],
- ['resources-course','resources','视频课程共学',15,0,3,6],
- ['resources-book','resources','书籍共读',0,0,2,3],
+ ['benefits-free-list','benefits','整理限免清单',0,0,6,2],
+ ['benefits-badge-draw','benefits','社区徽章抽奖',15,2,10,1],
+ ['resources-software','resources','软件分享',0,0,1,7],
+ ['resources-repository','resources','开源仓库共读',32,0,3,12],
+ ['resources-course','resources','视频课程共学',60,0,8,15],
+ ['resources-book','resources','书籍共读',0,0,4,4],
+ ['benefits-market','benefits','跨站集市',300,80,12,0],
+ ['resources-summit','resources','开源大会',1800,400,6,18],
 ];
 
-test('building activity catalog has six canonical choices and shared prototype cooldown',()=>{
- assert.equal(BUILDING_ACTIVITIES.length,6);
+test('building activity catalog spans both buildings and shares a weekly cooldown',()=>{
+ assert.equal(BUILDING_ACTIVITIES.length,8);
  assert.equal(RULES.buildingActivityCooldownDays,7);
  for(const [id,building,name,cost,members,mood,content] of expected){
   const def=BUILDING_ACTIVITIES.find(v=>v.id===id);
-  assert.deepEqual({...def,description:undefined},{id,building,name,description:undefined,requiredLevel:{'benefits-free-list':2,'benefits-badge-draw':4,'resources-software':3,'resources-repository':5,'resources-course':6,'resources-book':4}[id],cost,rewards:{members,mood,content},cooldownDays:7});
+  assert.deepEqual({...def,description:undefined},{id,building,name,description:undefined,requiredLevel:{'benefits-free-list':2,'benefits-badge-draw':4,'resources-software':3,'resources-repository':5,'resources-course':6,'resources-book':4,'benefits-market':9,'resources-summit':12}[id],cost,rewards:{members,mood,content},cooldownDays:7});
   assert.doesNotMatch(def.description,/虚构|模拟/);assert.ok(def.description.length>=8);
   assert.doesNotMatch(def.description,/https?:\/\//);
   assert.ok(Object.isFrozen(def)&&Object.isFrozen(def.rewards));
@@ -46,7 +48,7 @@ test('building activity catalog has six canonical choices and shared prototype c
 for(const [id,building,,cost,members,mood,content] of expected){
  test(`${id} charges once and either starts a project or grants immediate rewards, without advancing time`,()=>{
   for(const mode of ['classic','challenge']){
-   const s=ready(mode==='challenge'?{...createChallengeGame('活动测试',12345,'一起分享'),members:20,patrons:1}:{}),before=snapshot(s);
+   const s=ready({serverId:'town',...(mode==='challenge'?{difficulty:'challenge'}:{})}),before=snapshot(s);
    const status=selected(s,id),n=run(s,id);
    assert.equal(status.canRun,true);assert.equal(status.blockedReason,null);assert.equal(status.expectedMembers,members);
    const immediate=!PROJECT_DAYS[id];

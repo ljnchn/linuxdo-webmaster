@@ -5,14 +5,14 @@ import {SCENE_BUILDINGS,DEFAULT_SCENE_CENTER,ORIGINAL_OFFSET,WORLD_WIDTH,WORLD_H
 import {placeChat} from '../src/ambient-chat.mjs';
 import {createGame} from '../src/engine.mjs';
 
-test('five separate side-view destinations preserve the original street and replace the document kiosk with a garden',()=>{
+test('six separate side-view destinations share a sidewalk with the badge pavilion in the garden',()=>{
  assert.equal(WORLD_WIDTH,3*WORLD_HEIGHT);
  assert.equal(ORIGINAL_OFFSET,0);
  assert.equal(DEFAULT_SCENE_CENTER,790);
- assert.deepEqual(SCENE_BUILDINGS.map(b=>b.name),['社区公告','搞七捻三','开发调优','福利羊毛','资源荟萃']);
+ assert.deepEqual(SCENE_BUILDINGS.map(b=>b.name),['社区公告','搞七捻三','开发调优','徽章馆','福利羊毛','资源荟萃']);
  assert.ok(Object.isFrozen(SCENE_BUILDINGS));
  assert.ok(!SCENE_BUILDINGS.some(b=>b.id==='documentation'));
- assert.equal(getSceneBuilding(1498,600),null,'the former document kiosk has no invisible interaction area');
+ assert.equal(getSceneBuilding(1498,600).action,'achievements');
  for(const [index,b] of SCENE_BUILDINGS.entries()){
   assert.ok(Object.isFrozen(b));
   assert.ok(b.x>=0&&b.x+b.w<=WORLD_WIDTH&&b.y>0&&b.y+b.h<=WORLD_HEIGHT);
@@ -47,7 +47,7 @@ test('the expanded canvas routes real storefronts correctly after scaling and ho
   handlers.get('click')(at(2514,600));
   handlers.get('click')(at(1498,600));
   handlers.get('click')(at(2200,600));
-  assert.deepEqual(visits,[['benefits','福利羊毛'],['resources','资源荟萃']]);
+  assert.deepEqual(visits,[['benefits','福利羊毛'],['resources','资源荟萃'],['achievements','徽章馆']]);
   handlers.get('pointermove')(at(1934,600));assert.equal(canvas.style.cursor,'pointer');
   handlers.get('pointermove')(at(2200,600));assert.equal(canvas.style.cursor,'default');
   assert.equal(JSON.stringify(state),before);

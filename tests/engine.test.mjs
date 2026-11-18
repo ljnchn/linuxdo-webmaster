@@ -32,7 +32,7 @@ test('lease expiry wins at sponsor/day/event boundary, cannot revive or pay rewa
  let s=until(createGame(),6);s={...s,serverDaysRemaining:1,serverPeriodsRemaining:3,members:40,patrons:2,nextEventDay:7};s=period(period(s));const before=structuredClone(s);s=period(s);
  assert.equal(s.gameOver,true);assert.equal(s.day,7);assert.equal(s.timeSlot,0);assert.equal(s.cash,before.cash);assert.equal(s.members,before.members);assert.equal(s.pendingSponsors.length,0);assert.equal(validateState(s),true);
  for(const action of [{type:'tick',periods:1},{type:'renew',months:1},{type:'claim',id:'all'},{type:'rent',serverId:'block',months:1},{type:'registration',value:'open'},{type:'rename',name:'x'},{type:'resolve',eventId:'x',optionId:'x'}])assert.throws(()=>act(s,action),/本局结束/);
- const fresh=act(s,{type:'restart'});assert.equal(fresh.members,0);assert.equal(fresh.cash,760);assert.equal(fresh.revision,s.revision+1);assert.notEqual(fresh.seed,s.seed);assert.deepEqual(act(s,{type:'restart'}),fresh);assert.throws(()=>act(fresh,{type:'restart'}));
+ const fresh=act(s,{type:'restart'});assert.equal(fresh.members,0);assert.equal(fresh.cash,480);assert.equal(fresh.revision,s.revision+1);assert.notEqual(fresh.seed,s.seed);assert.deepEqual(act(s,{type:'restart'}),fresh);assert.throws(()=>act(fresh,{type:'restart'}));
 });
 test('last day lasts three phases and full natural opening ends day30',()=>{
  let s=period({...createGame(),serverDaysRemaining:1,serverPeriodsRemaining:3});assert.equal(s.gameOver,false);assert.equal(s.serverDaysRemaining,1);s=period(s);assert.equal(s.serverDaysRemaining,1);s=period(s);assert.equal(s.gameOver,true);assert.equal(s.day,1);assert.equal(s.serverDaysRemaining,0);

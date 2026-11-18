@@ -30,6 +30,8 @@ test('one manifest serves sandbox and production with the configured signed back
     getState: { url: 'https://game.ljnchn.com/api/state', method: 'GET', auth: 'platform' },
     sendAction: { url: 'https://game.ljnchn.com/api/actions', method: 'POST', auth: 'platform' },
     getLeaderboard: { url: 'https://game.ljnchn.com/api/leaderboard', method: 'GET', query: ['sort'], auth: 'platform' },
+    getTelevision: {url:'https://game.ljnchn.com/api/television',method:'GET',auth:'platform'},
+    setTelevision: {url:'https://game.ljnchn.com/api/television',method:'POST',auth:'platform'},
   });
   for (const publicOrigin of ['', 'http://real.test', 'https://api.example.com', 'https://example.com', 'https://localhost', 'https://localhost.', 'https://127.0.0.1', 'https://127.1', 'https://[::1]', 'https://real.test/path', 'https://u:p@real.test']) {
     assert.throws(() => configureManifest(template, { publicOrigin }));

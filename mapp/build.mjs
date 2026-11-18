@@ -32,6 +32,7 @@ const output = await pack({
     'app.css': Buffer.from(await style.arrayBuffer()),
     'strings.json': Buffer.from('{}'),
     'assets/community-sharing-day-v2.png': await readFile(new URL('public/assets/community-sharing-day-v2.png', root)),
+    'assets/badge-museum.png': await readFile(new URL('public/assets/badge-museum.png', root)),
     ...avatarFiles,
   },
 });

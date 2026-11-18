@@ -1,0 +1,1 @@
+ALTER TABLE players ADD COLUMN street_tv INTEGER NOT NULL DEFAULT 0 CHECK (street_tv IN (0,1));

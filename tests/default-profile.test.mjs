@@ -13,7 +13,7 @@ const assertDefault = state => { assert.equal(state.name, NAME); assert.equal(st
 test('new challenge defaults use the exact community name and slogan without changing initial rules', () => {
   const state = engine.createChallengeGame();
   assertDefault(state);
-  assert.deepEqual(state, { ...engine.createGame(NAME), difficulty: 'challenge', slogan: SLOGAN });
+  assert.deepEqual(state, { ...engine.createGame(NAME), cash: 480, difficulty: 'challenge', slogan: SLOGAN });
   assertDefault(engine.createChallengeGame(undefined, 37));
   assertDefault(engine.createChallengeGame(undefined, 37, undefined));
   for (const [name, slogan] of [['我自己的站', '保留我的口号'], ['留白社区', '']]) {

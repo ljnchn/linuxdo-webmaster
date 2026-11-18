@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { CHALLENGE, EVENTS, REGISTRATIONS, RULES, STRATEGIES, applyAction, createGame, createChallengeGame, summarize } from '../src/engine.mjs';
 import { ROOM_LAYOUT } from '../src/world.mjs';
+import { icon } from '../src/icons.mjs';
 
 const app = await readFile(new URL('../src/app.mjs', import.meta.url), 'utf8');
 const css = await readFile(new URL('../app.css', import.meta.url), 'utf8');
@@ -44,7 +45,24 @@ test('removing the challenge label leaves the community name, slogan and economi
   assert.match(functionLine('redraw'), /sum\.difficulty==='challenge'/);
 });
 
-test('one icon-only opening-status button sits beside the heart and the three choices exist only in its dialog', () => {
+test('the strategy shortcut follows saved and changed directions with the same icon and name as the picker', () => {
+  const source=app.slice(app.indexOf(' function renderManagement('),app.indexOf(' function renderSceneActors('));
+  const render=renderFunction('$','state','STRATEGIES','REGISTRATIONS','icon',source+';renderManagement();');
+  const picker=renderFunction('state','open','summarize','STRATEGIES','CHALLENGE','esc','icon',functionLine('strategy')+';strategy();');
+  const button={dataset:{},setAttribute(name,value){this[name]=value;}};
+  let state=createChallengeGame();
+  for(const [id,symbol] of [['content','book'],['care','chat'],['growth','users'],['balanced','heart']]){
+    state=applyAction(state,{type:'strategy',strategy:id});
+    const name=STRATEGIES.find(choice=>choice.id===id).name;
+    render(selector=>selector==='#strategy-shortcut'?button:null,state,STRATEGIES,REGISTRATIONS,icon);
+    assert.equal(button.innerHTML,icon(symbol)+'<small>'+name+'</small>');
+    assert.equal(button.title,'经营方向 · '+name);
+    assert.equal(button['aria-label'],button.title);
+    picker(state,(_,body)=>assert.ok(body.includes('data-strategy="'+id+'" class="chosen">'+icon(symbol))),summarize,STRATEGIES,CHALLENGE,String,icon);
+  }
+});
+
+test('one opening-status button sits beside strategy and its three choices exist only in the dialog', () => {
   const nav = section(/<nav class="side-nav"[^>]*>[\s\S]*?<\/nav>/);
   assert.match(nav, /<button\b[^>]*id="strategy-shortcut"[^>]*>[\s\S]*?<\/button>\s*<button\b[^>]*data-action="registration"/);
   const shortcut = nav.match(/<button\b[^>]*id="registration-shortcut"[^>]*>[\s\S]*?<\/button>/)?.[0];

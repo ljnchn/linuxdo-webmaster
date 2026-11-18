@@ -5,7 +5,7 @@ const source=readFileSync(new URL('../src/app.mjs',import.meta.url),'utf8');
 const click=source.slice(source.indexOf(' async function onClick(e)'),source.indexOf("\n $('#app').addEventListener"));
 test('server, profile, restart and restore handlers retain dialog ownership',()=>{
  for(const name of ['servers','rename','confirmRestart','confirmRestore']){
-  const line=source.split('\n').find(value=>value.startsWith(' function '+name+'('));
+  const line=source.slice(source.indexOf(' function '+name+'(')).split(/\r?\n (?:async )?function /)[0];
   assert.match(line,/const revision=dialogRevision/);
   assert.match(line,/dialogRevision(?:===|!==)revision/);
  }

@@ -1,6 +1,6 @@
 # 微应用打包
 
-- 版本：0.12.0
+- 版本：0.16.3
 - 应用 ID：`01a1c987-3436-75a8-8864-052fdcd1959a`
 - 后端：`https://linux-do-webmaster.rmb.run`
 
@@ -10,7 +10,7 @@
 bun run pack
 ```
 
-上传 `dist/mapp-package/app.zip`，沙箱与正式版使用同一文件。`dist/mapp-package/package.json` 记录清单、大小和 SHA-256。ZIP 仅含清单、HTML、JS、CSS、strings.json、当前街景 PNG 与三位角色的头像 JPEG。
+上传 `dist/mapp-package/app.zip`，沙箱与正式版使用同一文件。`dist/mapp-package/package.json` 记录清单、大小和 SHA-256。ZIP 仅含清单、HTML、JS、CSS、strings.json、街景和徽章馆 PNG，以及三位角色的头像 JPEG。
 
 需更换后端地址时，在构建进程设置 `PUBLIC_ORIGIN`；只接受 HTTPS origin，不允许路径、query 或凭据。服务端配置必须一致，见 [后端部署](../server/DEPLOYMENT.md)。
 
@@ -20,7 +20,7 @@ bun run pack
 
 排行榜由后端返回已验证账号的用户 ID，客户端通过 `sdk.user.getById` 显示 Linux.do 名称、用户名与头像。头像 Blob URL 仅在当前会话使用，不写入存档。需更新后端并批准 `user.lookup` 权限；读取失败时仍显示社区成绩。
 
-三个签名端点为 `getState`（GET `/api/state`）、`sendAction`（POST `/api/actions`）、`getLeaderboard`（GET `/api/leaderboard`，动态 query 仅允许 `sort`）。后端部署并获平台批准后才能联网运行。
+签名端点包括 `getState`、`sendAction`、`getLeaderboard`，以及用于街景冠名的 `getTelevision` 和 `setTelevision`（分别 GET、POST `/api/television`）。更新后端并批准新增端点后，两端可同步上电视名单。
 
 客户端只提交操作，不提交身份或成绩；网络失败时显示错误并保留已有进度。SDK 存储用于设置与本机备份，服务端保存可信进度、成就与共享排行榜。
 
@@ -30,4 +30,4 @@ bun run pack
 
 运行本地预览后，`tests/fixtures/sandbox.html` 可检查禁用表单、Trusted Types 与样式约束，成功时页面标记 `body[data-result="PASS"]`。该页是本地回归工具，不能替代真实平台沙箱。
 
-上传后检查首次开站、回车确认、关闭重开后恢复、前局备份、导出、音乐、手机横向滚动；联网后还须检查两种平台环境共享进度、不同账号排行榜、动作重试、跨局成就和断网提示。0.12.0 还需检查福利羊毛 Lv.2、资源荟萃 Lv.3 的开放状态、人物头顶交互、金币直接领取，以及切后台停止心跳、429 暂停与手动重连。先更新后端的 20 秒在线窗口，再上传采用 10 秒心跳的新版运行包；旧存档无需重开。
+上传后检查首次开站、回车确认、关闭重开后恢复、前局备份、导出、音乐、手机横向滚动；联网后还须检查两种平台环境共享进度、不同账号排行榜、动作重试、跨局成就和断网提示。0.16.3 还需检查福利羊毛 Lv.2、资源荟萃 Lv.3 的开放状态、人物头顶交互、金币直接领取，以及切后台停止心跳、429 暂停与手动重连。先更新后端的 20 秒在线窗口，再上传采用 10 秒心跳的新版运行包；旧存档无需重开。

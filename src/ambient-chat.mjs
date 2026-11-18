@@ -29,6 +29,11 @@ export const CHAT_LINES=Object.freeze([
  {text:'夜深了，记得早点睡。',period:2}, {text:'晚安，明天再来折腾。',period:2}, {text:'夜猫子还在刷帖。',period:2},
  {text:'凌晨的 L 站最热闹。',period:2}, {text:'再刷一帖就睡。',period:2}
 ].map(Object.freeze));
+const residentLines={
+ he:[{text:'交班簿在桌上，茶还热着。'},{text:'今晚谁当班？我给他留把椅子。'},{text:'迎新帖那头，我去看一眼。'}],
+ juan:[{text:'这条旧链接，我找到镜像了。'},{text:'还书箱里又多了张便签。'},{text:'那本书我翻过，旁注比正文还热闹。'}],
+ ce:[{text:'先别揭晓答案，咱们盲测。'},{text:'借我个插座，老机器还能跑。'},{text:'白板留着，上次那组数还有用。'}],
+};
 export function createChatSchedule({random=Math.random}={}){
  let last=null,wait=0,current=null,remaining=0,previousText='',previousSpeaker=null,destroyed=false,wasActive=false;
  const sample=()=>Math.min(.999999,Math.max(0,Number(random())||0));
@@ -48,7 +53,8 @@ export function createChatSchedule({random=Math.random}={}){
    wait-=gap;if(wait>0)return null;
    const speakers=candidates.length>1?candidates.filter(a=>a.id!==previousSpeaker):candidates;
    const speaker=speakers[Math.floor(sample()*speakers.length)];
-   const lines=CHAT_LINES.filter(v=>(v.period===undefined||v.period===timeSlot)&&v.text!==previousText);
+   const pool=residentLines[speaker.residentId]??CHAT_LINES;
+   const lines=pool.filter(v=>(v.period===undefined||v.period===timeSlot)&&v.text!==previousText);
    const text=lines[Math.floor(sample()*lines.length)].text;
    current={speakerId:speaker.id,text};remaining=CHAT_TIMING.showMs;previousSpeaker=speaker.id;previousText=text;
    return {...current};

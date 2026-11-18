@@ -1,5 +1,5 @@
 /** Shared, deterministic prototype rules. Ticks are supplied by the online clock, never wall time. */
-import {COMMUNITY_LEVELS,communityProgress,PROJECT_DAYS,SPECIALTIES,AWARDS,lifeOf,buildingMastery,residentStatus,activityBenefits,validLife} from './community-life.mjs';
+import {COMMUNITY_LEVELS,communityProgress,PROJECT_DAYS,SPECIALTIES,AWARDS,RESIDENTS,lifeOf,isMentor,buildingMastery,residentStatus,activityBenefits,validLife} from './community-life.mjs';
 export {COMMUNITY_LEVELS,communityProgress} from './community-life.mjs';
 export const RULES = Object.freeze({
   version: 4, prototype: true, periodsPerDay: 3, daysPerMonth: 30, secondsPerPeriod: 20,
@@ -9,13 +9,17 @@ export const RULES = Object.freeze({
   monthOptions: Object.freeze([1, 2, 3]), patronRatio: .05, sponsorCycleDays: 7,
   sponsorExpiryDays: 14, sponsorAmount: 100, inviteDailyLimit: 2,
   eventExpiryDays: 6, worldCycleDays: 12, maxEvents: 8, buildingActivityCooldownDays: 7,
-  explanation: '试玩平衡参数，非最终规则：一天 3 时段，每时段 20 秒，默认 1 分钟一天；服务器租期按整天扣减；30 天一月。开局预付 1 月。邀请注册每天最多发 2 个邀请码；关闭注册后所有新增佬友都会在门口吃闭门羹。富可敌国上限为佬友数的 5% 向下取整，每 7 天产生 100 刀赞助，14 天不领会过期。世界事件每 12 天轮换；氛围与内容限 0–100，事件入站也受当前注册名额和容量限制。到期先于当日奖励结算。升级按未使用租期向下取整折抵。离线、后台与说明/管理弹窗暂停，主画面事件卡不暂停。',
+  explanation: '太空数据中心一次建成后永久运行，人口无上限。地面经营规则：一天 3 时段，每时段 20 秒，默认 1 分钟一天；服务器租期按整天扣减；30 天一月。开局预付 1 月。邀请注册每天最多发 2 个邀请码；关闭注册后所有新增佬友都会在门口吃闭门羹。富可敌国上限为佬友数的 5% 向下取整，每 7 天产生 100 刀赞助，14 天不领会过期。世界事件每 12 天轮换；氛围与内容限 0–100，事件入站也受当前注册名额和容量限制。到期先于当日奖励结算。升级按未使用租期向下取整折抵。离线、后台与说明/管理弹窗暂停，主画面事件卡不暂停。',
 });
 export const SERVERS = Object.freeze([
   { id: 'nest', name: '小窝', spec: '1C1G', rent: 240, monthlyRent: 240, capacity: 60 },
   { id: 'block', name: '街区', spec: '2C2G', rent: 540, monthlyRent: 540, capacity: 180 },
   { id: 'town', name: '城镇', spec: '4C8G', rent: 1260, monthlyRent: 1260, capacity: 500 },
   { id: 'city', name: '都会', spec: '8C16G', rent: 2850, monthlyRent: 2850, capacity: 1500 },
+  { id: 'metro', name: '跨城双活', spec: '双区节点', rent: 6800, monthlyRent: 6800, capacity: 4000, level: 9 },
+  { id: 'region', name: '区域云', spec: '区域集群', rent: 15500, monthlyRent: 15500, capacity: 10000, level: 11 },
+  { id: 'global', name: '洲际网络', spec: '全球节点', rent: 34000, monthlyRent: 34000, capacity: 25000, level: 12 },
+  { id: 'space', name: '太空数据中心', spec: '轨道阵列', rent: 0, monthlyRent: 0, capacity: null, level: 13, buildCost: 120000 },
 ].map(Object.freeze));
 export const REGISTRATIONS = Object.freeze([
   { id: 'open', name: '开放注册', description: '注册申请直接放行，容量满了自动排队。' },
@@ -23,21 +27,23 @@ export const REGISTRATIONS = Object.freeze([
   { id: 'closed', name: '关闭注册', description: '门口挂上「暂停营业」，已有佬友照常发帖和赞助。' },
 ].map(Object.freeze));
 export const STRATEGIES = Object.freeze([
-  { id: 'balanced', name: '均衡运营', description: '兼顾佬友增长、氛围和内容，稳字当头。' },
-  { id: 'growth', name: '热情迎新', description: '多发迎新帖，人来得快，氛围与内容每天各消耗 1 点。' },
-  { id: 'content', name: '深耕内容', description: '慢慢扩圈，内容每天增加 3 点，靠干货留人。' },
-  { id: 'care', name: '友善维护', challengeOnly: true, description: '挑战模式：氛围每天 +2、内容 -2，增长减半。' },
+  { id: 'balanced', name: '均衡运营', icon: 'heart', description: '兼顾佬友增长、氛围和内容，稳字当头。' },
+  { id: 'growth', name: '热情迎新', icon: 'users', description: '多发迎新帖，人来得快，氛围与内容每天各消耗 1 点。' },
+  { id: 'content', name: '深耕内容', icon: 'book', description: '慢慢扩圈，内容每天增加 3 点，靠干货留人。' },
+  { id: 'care', name: '友善维护', icon: 'chat', challengeOnly: true, description: '挑战模式：每天氛围 +2、内容 -1，增长倍率 0.65。' },
 ].map(Object.freeze));
 export const BUILDING_UNLOCKS = Object.freeze({benefits:2,resources:3});
 // Deterministic building activities drawn from everyday forum life. Prototype
 // values are not real offers, paid prize draws, sponsorships, or final balance.
 export const BUILDING_ACTIVITIES = Object.freeze([
-  {id:'benefits-free-list',building:'benefits',requiredLevel:2,name:'整理限免清单',description:'把本周的限免、白嫖和公益额度整理成一张表，标好截止时间和坑位，顺手帮佬友省下几刀。',cost:0,rewards:{members:0,mood:3,content:2}},
-  {id:'benefits-badge-draw',building:'benefits',requiredLevel:4,name:'社区徽章抽奖',description:'拿 15 刀办一场社区徽章抽奖，用 CDK 或兑换码发奖，看看能不能再拐来 2 位新佬友。',cost:15,rewards:{members:2,mood:7,content:0}},
-  {id:'resources-software',building:'resources',requiredLevel:3,name:'软件分享',description:'安利几款压箱底的软件，写清楚安装、配置和踩坑点；Docker、NAS、效率工具都行。',cost:0,rewards:{members:0,mood:0,content:4}},
-  {id:'resources-repository',building:'resources',requiredLevel:5,name:'开源仓库共读',description:'拉上几位佬友共读一个热门开源仓库，从 README 一路聊到 Issue 和实现细节。',cost:10,rewards:{members:0,mood:1,content:7}},
-  {id:'resources-course',building:'resources',requiredLevel:6,name:'视频课程共学',description:'一起刷完一套视频课，笔记共享、进度打卡，谁也别想鸽。',cost:15,rewards:{members:0,mood:3,content:6}},
-  {id:'resources-book',building:'resources',requiredLevel:4,name:'书籍共读',description:'挑一本技术书慢慢啃，在「读书成诗」开个共读帖，把划线和吐槽都留给后来人。',cost:0,rewards:{members:0,mood:2,content:3}},
+  {id:'benefits-free-list',building:'benefits',requiredLevel:2,name:'整理限免清单',description:'把本周的限免、白嫖和公益额度整理成一张表，标好截止时间和坑位，顺手帮佬友省下几刀。',cost:0,rewards:{members:0,mood:6,content:2}},
+  {id:'benefits-badge-draw',building:'benefits',requiredLevel:4,name:'社区徽章抽奖',description:'用 CDK 或兑换码为佬友发奖，也给新面孔留两个位置。',cost:15,rewards:{members:2,mood:10,content:1}},
+  {id:'resources-software',building:'resources',requiredLevel:3,name:'软件分享',description:'安利几款压箱底的软件，写清楚安装、配置和踩坑点；Docker、NAS、效率工具都行。',cost:0,rewards:{members:0,mood:1,content:7}},
+  {id:'resources-repository',building:'resources',requiredLevel:5,name:'开源仓库共读',description:'拉上几位佬友共读一个热门开源仓库，从 README 一路聊到 Issue 和实现细节。',cost:32,rewards:{members:0,mood:3,content:12}},
+  {id:'resources-course',building:'resources',requiredLevel:6,name:'视频课程共学',description:'一起刷完一套视频课，笔记共享、进度打卡，谁也别想鸽。',cost:60,rewards:{members:0,mood:8,content:15}},
+  {id:'resources-book',building:'resources',requiredLevel:4,name:'书籍共读',description:'挑一本技术书慢慢啃，在「读书成诗」开个共读帖，把划线和吐槽都留给后来人。',cost:0,rewards:{members:0,mood:4,content:4}},
+  {id:'benefits-market',building:'benefits',requiredLevel:9,name:'跨站集市',description:'邀请邻站来街区摆摊，把周末变成一次集中招新。',cost:300,rewards:{members:80,mood:12,content:0}},
+  {id:'resources-summit',building:'resources',requiredLevel:12,name:'开源大会',description:'请各地区的维护者带来项目与讲义，向新佬友开放会场。',cost:1800,rewards:{members:400,mood:6,content:18}},
 ].map(activity=>Object.freeze({...activity,cooldownDays:RULES.buildingActivityCooldownDays,rewards:Object.freeze(activity.rewards)})));
 const ACTIVITY_BUILDINGS = Object.freeze({benefits:'福利羊毛',resources:'资源荟萃'});
 const option = (id, label, description, cost, members=0, mood=0, content=0, cash=0, patrons=0) => ({id,label,description,cost,rewards:{members,mood,content,cash,patrons}});
@@ -324,8 +330,8 @@ export const CHARACTER_ATTENTION_KINDS = Object.freeze([
 for (const e of [...LEGACY_EVENTS,...PREVIOUS_EVENTS,...PREVIOUS_EVENTS_V2,...EVENTS]) { for (const o of e.options) { Object.freeze(o.rewards); Object.freeze(o); } Object.freeze(e.options); Object.freeze(e); } Object.freeze(EVENTS); Object.freeze(LEGACY_EVENTS);
 const TRUSTED_EVENTS = Object.freeze([...EVENTS,...PREVIOUS_EVENTS_V2,...PREVIOUS_EVENTS,...LEGACY_EVENTS]);
 const WORLD_EVENTS = Object.freeze(EVENTS.filter(e=>e.category==='world'));
-const MAX = 1_000_000_000;
-const MAX_DAY = MAX - 100;
+const MAX = Number.MAX_SAFE_INTEGER;
+const MAX_DAY = Math.floor(MAX / RULES.periodsPerDay) - 100;
 const clone = value => JSON.parse(JSON.stringify(value));
 // Call only after validating an entire saved state. Keep IDs, expiry, economy, and
 // player-chosen names untouched; replace only trusted event presentation snapshots.
@@ -338,11 +344,22 @@ const str = (s,max=500) => typeof s==='string' && s.length>0 && s.length<=max;
 const record = v => v!==null && typeof v==='object' && !Array.isArray(v);
 const clamp = (n,low,high) => Math.min(high,Math.max(low,n));
 const serverFor = s => SERVERS.find(v=>v.id===s.serverId);
+export function serverQuote(s,server,months=1){
+  const current=serverFor(s);
+  const renew=current.id===server.id;
+  const days=months*RULES.daysPerMonth;
+  const price=server.buildCost??server.rent*months;
+  const credit=renew?0:Math.floor(current.rent*s.serverDaysRemaining/RULES.daysPerMonth);
+  const locked=server.level>communityProgress(s).level;
+  const reason=current.buildCost?'太空数据中心已永久启用':locked?`社区 Lv.${server.level} · ${COMMUNITY_LEVELS[server.level-1].members} 人开放`:s.members>(server.capacity??MAX)?'容量不足':'';
+  return {renew,days,price,credit,cost:price-credit,reason};
+}
 const patronCap = s => Math.floor(s.members * RULES.patronRatio);
 export const CHALLENGE = Object.freeze({
-  maintenanceBase: Object.freeze({nest:1,block:3,town:8,city:20}),
-  maintenancePerMember: Object.freeze({nest:.3,block:.32,town:.34,city:.36}), lowQuality:35, troubleGraceDays:2,
-  strategies:Object.freeze({balanced:Object.freeze({mood:-1,content:-1,growth:1}),growth:Object.freeze({mood:-2,content:-2,growth:1.4}),content:Object.freeze({mood:-1,content:1,growth:.7}),care:Object.freeze({mood:2,content:-2,growth:.5})}),
+  maintenanceBase: Object.freeze({nest:1,block:4,town:12,city:35,metro:90,region:220,global:520,space:950}),
+  maintenancePerMember: Object.freeze({nest:.20,block:.24,town:.27,city:.30,metro:.29,region:.27,global:.25,space:.23}), lowQuality:35, troubleGraceDays:2,
+  launchBudget:720,
+  strategies:Object.freeze({balanced:Object.freeze({mood:-1,content:-1,growth:1}),growth:Object.freeze({mood:-2,content:-2,growth:1.5}),content:Object.freeze({mood:-1,content:2,growth:.8}),care:Object.freeze({mood:2,content:-1,growth:.65})}),
 });
 const isChallenge=s=>s.difficulty==='challenge';
 const maintenanceCost=s=>isChallenge(s)?CHALLENGE.maintenanceBase[s.serverId]+Math.floor(s.members*CHALLENGE.maintenancePerMember[s.serverId]):0;
@@ -355,7 +372,7 @@ function capPatrons(s) { s.patrons=Math.min(s.patrons,patronCap(s)); }
 function admit(s,count) {
   if (count<=0 || s.registration==='closed') return 0;
   const quota=s.registration==='invite'?Math.max(0,RULES.inviteDailyLimit-s.admissionsToday):MAX;
-  const accepted=Math.max(0,Math.min(count,quota,serverFor(s).capacity-s.members));
+  const accepted=Math.max(0,Math.min(count,quota,(serverFor(s).capacity??MAX)-s.members));
   s.members+=accepted;s.admissionsToday+=accepted;return accepted;
 }
 function activityAdmissions(s,count) {
@@ -365,7 +382,7 @@ function activityAdmissions(s,count) {
   if(count>0){
     if(s.registration==='closed')reasons.push({code:'registration_closed',text:'当前关闭注册，暂停所有新增佬友入站'});
     else {
-      const quota=Math.max(0,RULES.inviteDailyLimit-s.admissionsToday),capacity=serverFor(s).capacity-s.members;
+      const quota=Math.max(0,RULES.inviteDailyLimit-s.admissionsToday),capacity=(serverFor(s).capacity??MAX)-s.members;
       if(s.registration==='invite'&&quota<count)reasons.push({code:'invite_quota',text:quota===0?'今日邀请名额已用完':`今日邀请名额仅剩 ${quota} 位`});
       if(capacity<count)reasons.push({code:'capacity',text:capacity===0?'服务器容量已满':`服务器仅剩 ${capacity} 个空位`});
     }
@@ -390,12 +407,13 @@ export function activityStatus(s,building) {
     const reason=blockedReason||(!activityUnlocked?`社区 Lv.${activity.requiredLevel} 解锁，需要达到 ${COMMUNITY_LEVELS[activity.requiredLevel-1].members} 位佬友。`:s.cash<benefit.cost?`刀不够了：需要 ${benefit.cost}，当前 ${s.cash}。`:null);
     return {...activity,...benefit,durationDays:PROJECT_DAYS[activity.id]||0,unlocked:activityUnlocked,canRun:!reason,blockedReason:reason,...activityAdmissions(s,benefit.rewards.members)};
   });
-  return {building,level:progress.level,unlocked,requiredLevel,requiredMembers,project:ongoing,mastery:buildingMastery(s,building),cooldownDays:RULES.buildingActivityCooldownDays,lastUsedDay,nextAvailableDay,remainingDays,canRun:activities.some(v=>v.canRun),blockedReason,activities};
+  const mentors=RESIDENTS.filter(person=>person.building===building&&isMentor(lifeOf(s).stories[person.id]));
+  return {building,mentors,level:progress.level,unlocked,requiredLevel,requiredMembers,project:ongoing,mastery:buildingMastery(s,building),cooldownDays:RULES.buildingActivityCooldownDays,lastUsedDay,nextAvailableDay,remainingDays,canRun:activities.some(v=>v.canRun),blockedReason,activities};
 }
 function expire(s) {
   const previous=s.pendingSponsors.length;
   s.pendingSponsors=s.pendingSponsors.filter(v=>v.expiresDay>s.day);
-  if(previous!==s.pendingSponsors.length) log(s,`${previous-s.pendingSponsors.length} 封未领取赞助已到期。`,'warning');
+  if(previous!==s.pendingSponsors.length) log(s,`${previous-s.pendingSponsors.length} 笔未领取赞助已到期。`,'warning');
   s.events=s.events.filter(v=>v.expiresDay>s.day);
 }
 export function createGame(name='像素小站',seed=20261110) {
@@ -405,12 +423,12 @@ export function createGame(name='像素小站',seed=20261110) {
 }
 export function createChallengeGame(name='LINUX DO',seed=20261110,slogan='Where possible begins.') {
   if(!validSlogan(slogan))throw new Error('社区标语须为 0–40 个字符。');
-  return {...createGame(name,seed),difficulty:'challenge',slogan};
+  return {...createGame(name,seed),cash:CHALLENGE.launchBudget-SERVERS[0].rent,difficulty:'challenge',slogan};
 }
 export function validateState(s) { return validateVersion(s,false); }
 function validateVersion(s,legacy) {
   try {
-    if(!record(s)||s.version!==(legacy?3:RULES.version)||!int(s.revision)||!int(s.day,0,MAX_DAY)||!int(s.timeSlot,0,2)||!str(s.name,24)||s.name!==s.name.trim()||!int(s.cash)||!int(s.members,0,1500)||!int(s.patrons,0,patronCap(s))||!int(s.mood,0,100)||!int(s.content,0,100)||!int(s.seed,1,4294967295)||!int(s.rngState,1,4294967295)) return false;
+    if(!record(s)||s.version!==(legacy?3:RULES.version)||!int(s.revision)||!int(s.day,0,MAX_DAY)||!int(s.timeSlot,0,2)||!str(s.name,24)||s.name!==s.name.trim()||!int(s.cash)||!int(s.members)||!int(s.patrons,0,patronCap(s))||!int(s.mood,0,100)||!int(s.content,0,100)||!int(s.seed,1,4294967295)||!int(s.rngState,1,4294967295)) return false;
     if(Object.hasOwn(s,'difficulty')&&s.difficulty!=='challenge')return false;
     if(Object.hasOwn(s,'slogan')&&!validSlogan(s.slogan))return false;
     if(Object.hasOwn(s,'communityLevel')&&!int(s.communityLevel,1,COMMUNITY_LEVELS.length))return false;
@@ -423,16 +441,25 @@ function validateVersion(s,legacy) {
     }
     if(s.strategy==='care'&&!isChallenge(s))return false;
     const server=serverFor(s);
-    if(!legacy&&(!int(s.serverDaysRemaining,0,Math.floor(MAX/RULES.periodsPerDay))||s.serverPeriodsRemaining!==s.serverDaysRemaining*RULES.periodsPerDay))return false;
-    if(!server||s.members>server.capacity||!int(s.serverPeriodsRemaining)||typeof s.gameOver!=='boolean'||s.gameOver!==(s.serverPeriodsRemaining===0)||!int(s.admissionsToday,0,1500)) return false;
+    if(!server||s.members>(server.capacity??MAX)||!int(s.admissionsToday))return false;
+    if(server.buildCost){
+      if(legacy||s.serverDaysRemaining!==null||s.serverPeriodsRemaining!==null||s.gameOver!==false)return false;
+    }else{
+      if(!legacy&&(!int(s.serverDaysRemaining,0,Math.floor(MAX/RULES.periodsPerDay))||s.serverPeriodsRemaining!==s.serverDaysRemaining*RULES.periodsPerDay))return false;
+      if(!int(s.serverPeriodsRemaining)||s.gameOver!==(s.serverPeriodsRemaining===0))return false;
+    }
     if(!REGISTRATIONS.some(v=>v.id===s.registration)||!STRATEGIES.some(v=>v.id===s.strategy)||!int(s.nextEventDay,s.day+1,s.day+5)||!int(s.nextWorldEventDay,s.day+1,s.day+RULES.worldCycleDays)||s.nextWorldEventDay%RULES.worldCycleDays!==0) return false;
     if(s.migrationNotice!==null&&!str(s.migrationNotice)) return false;
     if(!Array.isArray(s.pendingSponsors)||s.pendingSponsors.length>150||!Array.isArray(s.events)||s.events.length>RULES.maxEvents||!Array.isArray(s.logs)||s.logs.length>30||!Array.isArray(s.history)||s.history.length>40) return false;
-    if(!s.pendingSponsors.every(v=>record(v)&&int(v.createdDay,7,s.day)&&v.createdDay%7===0&&v.expiresDay===v.createdDay+14&&v.expiresDay>s.day&&v.amount===RULES.sponsorAmount&&int(v.patron,1,75)&&v.id===`sponsor-${v.createdDay}-${v.patron}`)) return false;
+    if(!s.pendingSponsors.every(v=>record(v)&&int(v.createdDay,7,s.day)&&v.createdDay%7===0&&v.expiresDay===v.createdDay+14&&v.expiresDay>s.day&&(
+      v.id===`sponsor-${v.createdDay}-batch`
+        ? int(v.count,76)&&int(v.amount)&&v.amount===v.count*RULES.sponsorAmount
+        : v.amount===RULES.sponsorAmount&&int(v.patron,1,75)&&v.id===`sponsor-${v.createdDay}-${v.patron}`
+    )))return false;
     if(new Set(s.pendingSponsors.map(v=>v.id)).size!==s.pendingSponsors.length||new Set(s.events.map(v=>v.id)).size!==s.events.length) return false;
     if(!s.events.every(v=>{ if(!record(v))return false;return int(v.createdDay,1,s.day)&&v.expiresDay===v.createdDay+RULES.eventExpiryDays&&v.expiresDay>s.day&&TRUSTED_EVENTS.some(def=>v.kind===def.id&&v.id===`event-${def.category}-${v.createdDay}`&&v.category===def.category&&v.title===def.title&&v.description===def.description&&JSON.stringify(v.options)===JSON.stringify(def.options)); })) return false;
     if(!s.logs.every(v=>record(v)&&str(v.id,150)&&int(v.day,0,s.day)&&str(v.text)&&['info','success','warning','event'].includes(v.kind))) return false;
-    if(!s.history.every((v,i,a)=>record(v)&&int(v.day,1,s.day)&&int(v.members,0,1500)&&int(v.cash)&&(!i||v.day>a[i-1].day))) return false;
+    if(!s.history.every((v,i,a)=>record(v)&&int(v.day,1,s.day)&&int(v.members)&&int(v.cash)&&(!i||v.day>a[i-1].day))) return false;
     return true;
   } catch { return false; }
 }
@@ -465,7 +492,7 @@ export function summarize(s) {
     if(s.events.some(e=>e.kind==='troublemaker'))pressureHints.push('捣乱事件出现满两天后，每个未处理事件每天氛围 -2；可免费调解。');
     if(Math.min(s.mood,s.content)<CHALLENGE.lowQuality)pressureHints.push('氛围或内容低于 35，每天流失约 2% 佬友，极低时 4%。');
   }
-  return {difficulty:challenge?'challenge':'classic',maintenanceCost:maintenanceCost(s),maintenancePerMember:challenge?CHALLENGE.maintenancePerMember[s.serverId]:0,maintenanceBase:challenge?CHALLENGE.maintenanceBase[s.serverId]:0,pressureHints,strategyEffects:challenge?CHALLENGE.strategies[s.strategy]:null,server,rent:server.rent,monthlyRent:server.rent,capacity:server.capacity,load:s.members/server.capacity,runway:s.serverDaysRemaining,serverDaysRemaining:s.serverDaysRemaining,serverPeriodsRemainder:0,serverPeriodsRemaining:s.serverPeriodsRemaining,timeSlot:s.timeSlot,gameOver:s.gameOver,nextSponsorDay:(Math.floor(s.day/7)+1)*7,sponsorTotal:s.pendingSponsors.reduce((n,v)=>n+v.amount,0),patronCap:patronCap(s),elapsedPeriods:s.day*3+s.timeSlot,registration:s.registration,inviteRemaining:Math.max(0,RULES.inviteDailyLimit-s.admissionsToday),score:s.day*3+s.timeSlot};
+  return {difficulty:challenge?'challenge':'classic',maintenanceCost:maintenanceCost(s),maintenancePerMember:challenge?CHALLENGE.maintenancePerMember[s.serverId]:0,maintenanceBase:challenge?CHALLENGE.maintenanceBase[s.serverId]:0,pressureHints,strategyEffects:challenge?CHALLENGE.strategies[s.strategy]:null,server,rent:server.rent,monthlyRent:server.rent,capacity:server.capacity,load:server.capacity===null?null:s.members/server.capacity,runway:s.serverDaysRemaining,serverDaysRemaining:s.serverDaysRemaining,serverPeriodsRemainder:0,serverPeriodsRemaining:s.serverPeriodsRemaining,timeSlot:s.timeSlot,gameOver:s.gameOver,nextSponsorDay:(Math.floor(s.day/7)+1)*7,sponsorTotal:s.pendingSponsors.reduce((n,v)=>n+v.amount,0),patronCap:patronCap(s),elapsedPeriods:s.day*3+s.timeSlot,registration:s.registration,inviteRemaining:Math.max(0,RULES.inviteDailyLimit-s.admissionsToday),score:s.day*3+s.timeSlot};
 }
 export function operatingForecast(s,serverId=s.serverId){
  const server=SERVERS.find(v=>v.id===serverId);
@@ -493,6 +520,24 @@ function addEvent(s,def) {
   s.events.push({id:`event-${def.category}-${s.day}`,kind:def.id,category:def.category,createdDay:s.day,expiresDay:s.day+RULES.eventExpiryDays,title:def.title,description:def.description,options:clone(def.options)});
   log(s,`${def.category==='world'?'世界':'人物'}事件：${def.title}`,'event');
 }
+// The save holds the trusted base option. Quote turnout and budget at the
+// community's earned level, so changing servers cannot discount a pending event.
+export function eventChoice(s,option){
+  const level=communityProgress(s).level;
+  const scale=level>=13?32:level>=12?16:level>=11?8:level>=9?4:level>=7?2:1;
+  if(scale===1)return option;
+  const base=option.rewards;
+  const cost=option.cost*scale;
+  const rewards={...base,cash:base.cash*scale,members:base.members>0&&!base.patrons?base.members*scale:base.members};
+  const description=[
+    cost?`花 ${cost} 刀`:'免费',
+    rewards.cash&&`获得 ${rewards.cash} 刀`,
+    rewards.members>0&&`尝试迎接 ${rewards.members} 位${base.patrons?'赞助者':'佬友'}`,
+    rewards.members<0&&`减少 ${-rewards.members} 位佬友`,
+    ...['mood','content'].filter(key=>rewards[key]).map(key=>`${key==='mood'?'氛围':'内容'} ${rewards[key]>0?'+':''}${rewards[key]}`),
+  ].filter(Boolean).join(' · ');
+  return {...option,cost,rewards,description};
+}
 function settleDay(s) {
   s.admissionsToday=0;
   const challenge=isChallenge(s);
@@ -506,9 +551,11 @@ function settleDay(s) {
   }
   const quality=(s.mood+s.content)/200;
   // Word of mouth grows with the community; quality and registration still gate arrivals.
-  const growth=Math.max(1,Math.floor((2+random(s)*4)*(.65+quality)*(challenge?CHALLENGE.strategies[s.strategy].growth:(s.strategy==='growth'?1.4:s.strategy==='content'?.7:1))*(challenge?(.35+.65*quality)*(1+Math.min(s.members,500)/100):1)));
+  const reach=1+Math.min(s.members,500)/100+Math.sqrt(Math.max(0,s.members-500))/2;
+  const growth=Math.max(1,Math.floor((2+random(s)*4)*(.65+quality)*(challenge?CHALLENGE.strategies[s.strategy].growth:(s.strategy==='growth'?1.4:s.strategy==='content'?.7:1))*(challenge?(.35+.65*quality)*reach:s.members>1500?reach:1)));
   const specialty=lifeOf(s).specialty;
-  const admitted=admit(s,growth+(specialty==='welcome'?1:0));
+  const welcomeBonus=specialty==='welcome'?Math.min(50,1+Math.floor(s.members/500)):0;
+  const admitted=admit(s,growth+welcomeBonus);
   s.mood=clamp(s.mood+(challenge?CHALLENGE.strategies[s.strategy].mood:(s.strategy==='growth'?-1:1)),0,100);
   s.content=clamp(s.content+(challenge?CHALLENGE.strategies[s.strategy].content:(s.strategy==='content'?3:s.strategy==='growth'?-1:1)),0,100);
   if(specialty==='knowledge')s.content=clamp(s.content+1,0,100);
@@ -518,7 +565,9 @@ function settleDay(s) {
   // become a patron, so a full server cannot permanently lock out sponsorship.
   if((challenge?s.members>0:admitted>0)&&s.patrons<patronCap(s)&&random(s)<(challenge?.45*quality:.65))s.patrons+=Math.min(patronCap(s)-s.patrons,challenge?1+Math.floor(s.members/150):1);
   if(s.day%RULES.sponsorCycleDays===0&&s.patrons) {
-    for(let i=1;i<=s.patrons;i++)s.pendingSponsors.push({id:`sponsor-${s.day}-${i}`,createdDay:s.day,expiresDay:s.day+RULES.sponsorExpiryDays,amount:RULES.sponsorAmount,patron:i});
+    const dates={createdDay:s.day,expiresDay:s.day+RULES.sponsorExpiryDays};
+    if(s.patrons>75)s.pendingSponsors.push({...dates,id:`sponsor-${s.day}-batch`,count:s.patrons,amount:s.patrons*RULES.sponsorAmount});
+    else for(let i=1;i<=s.patrons;i++)s.pendingSponsors.push({...dates,id:`sponsor-${s.day}-${i}`,amount:RULES.sponsorAmount,patron:i});
     log(s,`收到 ${s.patrons} 封赞助，请在第 ${s.day+RULES.sponsorExpiryDays} 天前领取。`,'success');
   }
   if(s.day===s.nextEventDay) {
@@ -546,16 +595,19 @@ export function applyAction(state,action) {
       const server=SERVERS.find(v=>v.id===action.serverId);
       if(!server)throw new Error('请选择有效的服务器。');
       if(server.id===s.serverId)throw new Error('当前已使用该服务器，请选择续租。');
-      if(server.capacity<s.members)throw new Error('该服务器容量不足以容纳现有佬友。');
       const months=action.months===undefined?1:action.months;
       if(!RULES.monthOptions.includes(months)||Object.hasOwn(action,'days'))throw new Error('租期只能选择 1、2 或 3 个月。');
-      const credit=Math.floor(serverFor(s).rent*s.serverDaysRemaining/RULES.daysPerMonth);
-      const price=server.rent*months;
-      if(s.cash+credit<price)throw new Error('余额不足以预付所选租期。');
-      s.cash+=credit-price;s.serverId=server.id;s.serverDaysRemaining=months*RULES.daysPerMonth;
+      if(server.buildCost&&months!==1)throw new Error('太空数据中心一次建设，无需预付多月。');
+      const {price,credit,cost,reason}=serverQuote(s,server,months);
+      if(reason)throw new Error(reason);
+      if(s.cash<cost)throw new Error('余额不足，请先领取赞助或继续经营。');
+      s.cash+=credit-price;s.serverId=server.id;
+      if(server.buildCost){s.serverDaysRemaining=null;log(s,`太空数据中心建成，进入无限模式。建设费 ${price} 刀，旧租期折抵 ${credit} 刀。`,'success');break;}
+      s.serverDaysRemaining=months*RULES.daysPerMonth;
       log(s,`租用 ${server.spec} ${months} 个月，花费 ${price} 刀，旧租期折抵 ${credit} 刀。`,'success');break;
     }
     case 'renew': {
+      if(serverFor(s).buildCost)throw new Error('太空数据中心永久运行，无需续租。');
       if(!RULES.monthOptions.includes(action.months)||Object.hasOwn(action,'days'))throw new Error('续租只能选择 1、2 或 3 个月。');
       const price=serverFor(s).rent*action.months;
       if(s.cash<price)throw new Error('余额不足以续租。');
@@ -565,7 +617,7 @@ export function applyAction(state,action) {
     case 'tick': {
       if(action.periods!==1||Object.hasOwn(action,'days'))throw new Error('自动时钟每次只能结算一个时段。');
       s.timeSlot=(s.timeSlot+1)%RULES.periodsPerDay;
-      if(s.timeSlot===0){s.day++;s.serverDaysRemaining--;expire(s);}
+      if(s.timeSlot===0){s.day++;if(s.serverDaysRemaining!==null)s.serverDaysRemaining--;expire(s);}
       if(s.serverDaysRemaining===0){
         s.gameOver=true;
         // Lease expiry wins over growth, sponsors and events on the same boundary.
@@ -580,7 +632,7 @@ export function applyAction(state,action) {
       if(!selected.length)throw new Error('没有可领取的赞助，或该信封已领取/到期。');
       const ids=new Set(selected.map(v=>v.id));const total=selected.reduce((n,v)=>n+v.amount,0);
       s.cash+=total;s.pendingSponsors=s.pendingSponsors.filter(v=>!ids.has(v.id));
-      log(s,`领取 ${selected.length} 封赞助，入账 ${total} 刀。`,'success');break;
+      log(s,`领取 ${selected.reduce((n,receipt)=>n+(receipt.count??1),0)} 份赞助，入账 ${total} 刀。`,'success');break;
     }
     case 'activity': {
       if(Object.keys(action).sort().join(',')!=='activityId,type')throw new Error('活动操作只能指定活动编号。');
@@ -599,13 +651,17 @@ export function applyAction(state,action) {
     case 'story': {
       if(Object.keys(action).sort().join()!=='optionId,residentId,type'||!['he','juan','ce'].includes(action.residentId))throw Error('请选择有效的佬友故事。');
       const story=residentStatus(s,action.residentId);
-      if(!story.canAct)throw Error(story.complete?'这段故事已完成。':!story.unlocked?`社区 Lv.${story.level} 相遇。`:`${story.wait} 天后再来看看。`);
+      if(!story.canAct)throw Error(!story.unlocked?`社区 Lv.${story.level} 相遇。`:`${story.wait} 天后再来看看。`);
       const option=story.options.find(v=>v.id===action.optionId);
       if(!option)throw Error('请选择当前故事的选项。');
       if(s.cash<option.cost)throw Error('刀不够了，先攒攒。');
       s.cash-=option.cost;s.mood=clamp(s.mood+option.rewards.mood,0,100);s.content=clamp(s.content+option.rewards.content,0,100);const accepted=admit(s,option.rewards.members);
-      s.life??=lifeOf(s);const choices=[...(s.life.stories[story.id]?.choices??[]),option.id];s.life.stories[story.id]={choices,day:s.day};
-      log(s,`${story.name}：${option.label}${choices.length===3?'，成为社区骨干':''}${option.rewards.members?`，实际入站 ${accepted} 位佬友`:''}。`,'success');break;
+      s.life??=lifeOf(s);
+      const choices=s.life.stories[story.id]?.choices??[];
+      s.life.stories[story.id]=story.complete
+       ? {choices,day:s.day,visits:story.visits+1,lastVisit:option.id}
+       : {choices:[...choices,option.id],day:s.day};
+      log(s,`${story.name} · ${story.title}：${option.label}${story.step===2?'，成为社区骨干':''}${option.rewards.members?`，实际入站 ${accepted} 位佬友`:''}。`,'success');break;
     }
     case 'specialty': {
       if(Object.keys(action).sort().join()!=='specialtyId,type'||!SPECIALTIES.some(v=>v.id===action.specialtyId))throw Error('请选择有效的社区特色。');
@@ -616,8 +672,9 @@ export function applyAction(state,action) {
     case 'resolve': {
       const event=s.events.find(v=>v.id===action.eventId);
       if(!event)throw new Error('事件已处理、到期或不存在。');
-      const op=event.options.find(v=>v.id===action.optionId);
-      if(!op)throw new Error('请选择有效的事件选项。');
+      const option=event.options.find(v=>v.id===action.optionId);
+      if(!option)throw new Error('请选择有效的事件选项。');
+      const op=eventChoice(s,option);
       if(s.cash<op.cost)throw new Error('余额不足以执行此选项。');
       const r=op.rewards;
       s.cash+=r.cash-op.cost;
@@ -643,7 +700,7 @@ export function applyAction(state,action) {
       if(Object.hasOwn(action,'slogan')){if(!validSlogan(action.slogan))throw new Error('社区标语须为 0–40 个字符。');s.slogan=action.slogan;}break;
     default:throw new Error('未知操作。');
   }
-  s.serverPeriodsRemaining=s.serverDaysRemaining*RULES.periodsPerDay;
+  s.serverPeriodsRemaining=s.serverDaysRemaining===null?null:s.serverDaysRemaining*RULES.periodsPerDay;
   s.communityLevel=Math.max(previousLevel,communityProgress(s).level);
   s.revision++;
   if(!validateState(s))throw new Error('操作超出存档允许范围。');

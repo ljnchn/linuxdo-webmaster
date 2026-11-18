@@ -3,7 +3,7 @@
 export function markup(element) {
   return {set html(source) {
     const doc=element.ownerDocument,root=doc.createDocumentFragment(),stack=[root];
-    const tags=new Set('main header footer section aside nav div span small strong b i em p h1 h2 h3 button canvas dialog label input form select option ol li article svg path circle br img'.split(' '));
+    const tags=new Set('main header footer section aside nav div span small strong b i em p h1 h2 h3 button canvas dialog details summary label input form select option ol li article svg path circle br img'.split(' '));
     const safeImageSrc=value=>{const src=value.trim();return src.startsWith('blob:')||/^assets\/avatars\/[\w.-]+$/.test(src);};
     const decode=text=>text.replace(/&(?:amp|lt|gt|quot|#39);/g,entity=>({'&amp;':'&','&lt;':'<','&gt;':'>','&quot;':'"','&#39;':"'"}[entity]));
     const tokens=/<!--[^]*?-->|<\/[a-z][a-z0-9-]*\s*>|<[a-z][a-z0-9-]*(?:\s+[a-zA-Z_:][\w:.-]*(?:\s*=\s*(?:"[^"]*"|'[^']*'))?)*\s*\/?>|[^<]+/gy;

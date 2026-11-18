@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { EVENTS, createGame, validateState, migrateState, applyAction } from '../src/engine.mjs';
+import { EVENTS, createGame, validateState, migrateState, applyAction, eventChoice } from '../src/engine.mjs';
 import { oldEvents } from './fixtures/legacy-events.mjs';
 
 const app = await readFile(new URL('../src/app.mjs', import.meta.url), 'utf8');
@@ -43,11 +43,11 @@ test('successful event choices notify their actual event outcome; rejected choic
 });
 const display = (state, id = null) => {
   const opened = [];
-  renderFunction('state', 'id', 'communityText', 'esc', 'icon', 'open', `
+  renderFunction('state', 'id', 'communityText', 'esc', 'icon', 'open', 'eventChoice', `
     let selectedEvent=null;
     const notify=()=>{throw Error('unexpected stale event');},redraw=()=>{},endGame=()=>{throw Error('unexpected end');};
     ${line('eventMarkup')}${line('events')};events(id);
-  `)(state, id, communityText, esc, () => '', (...args) => opened.push(args));
+  `)(state, id, communityText, esc, () => '', (...args) => opened.push(args), eventChoice);
   assert.equal(opened.length, 1);
   return opened[0].join(' ');
 };

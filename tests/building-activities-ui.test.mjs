@@ -11,7 +11,7 @@ const functionLine = name => {
   return source;
 };
 const actSource = app.slice(app.indexOf(' async function act(action,message)'), app.indexOf('\n async function setClockActive'));
-const ready = patch => ({ ...engine.createChallengeGame('分享小站', 123, '一起进步'), members: 20, patrons: 1, communityLevel: 10, ...patch });
+const ready = patch => ({ ...engine.createChallengeGame('分享小站', 123, '一起进步'), members: 20, patrons: 1, cash: 5000, communityLevel: 13, ...patch });
 const cards = html => [...html.matchAll(/<button\b[^>]*data-activity="([^"]+)"[^>]*>[\s\S]*?<\/button>/g)].map(match => ({ id: match[1], html: match[0], disabled: /<button\b[^>]*\sdisabled(?:\s|>)/.test(match[0]) }));
 const show = (state, building) => {
   const opened = [];
@@ -38,7 +38,7 @@ function harness(initial = ready(), transport = null) {
     const document={activeElement:{isConnected:true,focus(){}}},dialog={open:false,showModal(){this.open=true;},close(){this.open=false;}},
       setClockActive=async value=>clock.setActive(value),isRunning=()=>started&&!state.gameOver&&!dialog.open;
     const $=selector=>{
-      if(!elements.has(selector))elements.set(selector,{textContent:'',focus(){},
+      if(!elements.has(selector))elements.set(selector,{textContent:'',focus(){},scrollIntoView(){},
         set innerHTML(value){this.html=value;if(selector==='#dialog-body')renders++;},get innerHTML(){return this.html||'';}});
       return elements.get(selector);
     };
@@ -56,7 +56,7 @@ function harness(initial = ready(), transport = null) {
       inspect(){return {state:structuredClone(state),busy,speed,started,memoryOnly,storageWarning,
         writes:structuredClone(writes),messages:structuredClone(messages),clockCalls:structuredClone(clockCalls),
         credit:clock.progressMs,active:clock.active,open:dialog.open,dialogRevision,renders,redraws,
-        title:$('#dialog-title').textContent,html:$('#dialog-body').innerHTML};}
+        title:$('#dialog-title').textContent,html:$('#dialog-body').innerHTML,feedback:$('#activity-feedback').textContent};}
     };
   `)(initial, transport, engine);
 }
@@ -66,11 +66,11 @@ test('rendered building buttons remove the document kiosk and route benefits and
   const end = app.indexOf(".join('')}", start) + ".join('')".length;
   assert.ok(start > 1 && end > start);
   const html = renderFunction('SCENE_BUILDINGS', 'WORLD_WIDTH', 'WORLD_HEIGHT', `return ${app.slice(start, end)};`)(SCENE_BUILDINGS, WORLD_WIDTH, WORLD_HEIGHT);
-  assert.equal([...html.matchAll(/<button\b/g)].length, 5);
+  assert.equal([...html.matchAll(/<button\b/g)].length, 6);
   assert.doesNotMatch(html, /文档共建|building-documentation|data-action="(?:content|mail)"/);
   assert.match(html, /building-benefits" data-action="benefits"[^>]*查看福利与抽奖/);
   assert.match(html, /building-resources" data-action="resources"[^>]*查看资源分享/);
-  assert.equal(getSceneBuilding(1498, 600), null);
+  assert.equal(getSceneBuilding(1498, 600).action,'achievements');
   const canvas = app.match(/<canvas\b[^>]*id="world"[^>]*>/)?.[0];
   assert.ok(canvas);
   assert.doesNotMatch(canvas, /文档共建/);
@@ -88,14 +88,14 @@ test('rendered building buttons remove the document kiosk and route benefits and
   assert.deepEqual(canvasDestinations, destinations);
 });
 
-test('building panels show two benefits and all four resource categories without prototype disclaimers or changing canonical effects', () => {
+test('building panels show three benefits and five resource activities without prototype disclaimers or changing canonical effects', () => {
   const initial = ready(), before = structuredClone(initial);
   for (const building of ['benefits', 'resources']) {
     const { title, html } = show(initial, building), actual = cards(html);
     const expected = engine.BUILDING_ACTIVITIES.filter(activity => activity.building === building);
     assert.equal(title, building === 'benefits' ? '福利羊毛' : '资源荟萃');
     assert.deepEqual(actual.map(card => card.id), expected.map(activity => activity.id));
-    assert.equal(actual.length, building === 'benefits' ? 2 : 4);
+    assert.equal(actual.length, building === 'benefits' ? 3 : 5);
     assert.match(html, /每栋建筑独立冷却 7 游戏日/);
     assert.doesNotMatch(html, /虚构|模拟|无真实|不发布或下载真实资源/);
     assert.match(html, building === 'benefits' ? /活动收益计入本局社区的氛围、内容与佬友规模/ : /分享成果计入社区内容与氛围/);
@@ -147,7 +147,7 @@ test('draw previews state admission limits once and do not incorrectly disable i
   }
 });
 
-test('all six UI activities use the canonical action, preserve elapsed time, and save the complete updated local run', async () => {
+test('all eight UI activities use the canonical action, preserve elapsed time, and save the complete updated local run', async () => {
   for (const definition of engine.BUILDING_ACTIVITIES) {
     const initial = ready(), h = harness(initial);
     h.show(definition.building);
@@ -166,6 +166,7 @@ test('all six UI activities use the canonical action, preserve elapsed time, and
     assert.equal(after.clockCalls.some(([method]) => method === 'speed' || method === 'restore'), false);
     assert.equal(after.renders, before.renders + 1);
     assert.ok(cards(after.html).every(card => card.disabled), 'successful activity immediately renders the shared building cooldown');
+    assert.ok(after.html.includes(`<p id="activity-feedback" class="info-box" role="status" >${expected.logs.at(-1).text}</p>`), 'the actual outcome stays visible inside the modal');
     assert.equal(after.open, true);
   }
 });
@@ -215,6 +216,7 @@ test('concurrent clicks send one trusted action and preserve the server timing a
   h.show('resources');
   const first = h.click('resources-repository');
   assert.equal(h.inspect().busy, true);
+  assert.match(h.inspect().feedback, /正在开展「.*」/);
   await h.click('resources-course');
   assert.equal(requests.length, 1);
   assert.deepEqual(requests[0].action, { type: 'activity', activityId: 'resources-repository' });
@@ -272,5 +274,17 @@ test('failed trusted activity retains recovered state and never shows a success 
   assert.equal(after.messages.at(-1)[1], true);
   assert.equal(after.writes.length, 0);
   assert.equal(after.busy, false);
+});
+test('activity errors are visible inside the open dialog and escaped in the page toast', () => {
+  const feedback = { hidden: true, textContent: '' }, toast = {};
+  const notify = renderFunction('$', 'dialog', 'clearTimeout', 'setTimeout', 'esc', `let toastTimer;${functionLine('notify')};return notify;`)(
+    selector => selector === '#activity-feedback' ? feedback : toast,
+    { open: true }, () => {}, () => 1, value => value.replaceAll('<', '&lt;'),
+  );
+  notify('活动未提交 <重试>', true);
+  assert.equal(feedback.hidden, false);
+  assert.equal(feedback.textContent, '活动未提交 <重试>');
+  assert.match(toast.innerHTML, /class="toast error"/);
+  assert.match(toast.innerHTML, /&lt;重试>/);
 });
 import {renderFunction} from './fixtures/render-function.mjs';

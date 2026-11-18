@@ -17,6 +17,7 @@ export function createStore(path,channel,options={}) {
  if(!sqlite.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='players'").get())sqlite.exec(readFileSync(new URL('../drizzle/0000_trusted_runs.sql',import.meta.url),'utf8'));
  else if(!sqlite.prepare('PRAGMA table_info(players)').all().some(c=>c.name==='commit_token'))throw new Error('Legacy database requires an explicit migration; use a fresh v3 database');
  if(!sqlite.prepare('PRAGMA table_info(players)').all().some(c=>c.name==='started'))sqlite.exec(readFileSync(new URL('../drizzle/0002_player_achievements.sql',import.meta.url),'utf8'));
+ if(!sqlite.prepare('PRAGMA table_info(players)').all().some(c=>c.name==='street_tv'))sqlite.exec(readFileSync(new URL('../drizzle/0004_street_television.sql',import.meta.url),'utf8'));
  if(channel==='shared'){
   sqlite.exec(readFileSync(new URL('../drizzle/0001_last_run_backups.sql',import.meta.url),'utf8'));
   sqlite.exec(readFileSync(new URL('../drizzle/0003_shared_players.sql',import.meta.url),'utf8'));

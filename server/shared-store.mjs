@@ -5,6 +5,23 @@ import { earnedAchievements } from '../src/achievements.mjs';
 export function createSharedStore(db,channel,{now=Date.now}={}) {
  if(!['development','sandbox','production','shared'].includes(channel))throw new Error('Invalid channel');
  const prepare=(sql,...values)=>db.prepare(sql).bind(...values);
+ const scores=`SELECT identity,run_id,name,members,days,0 AS finished FROM players WHERE channel=? AND json_extract(state,'$.gameOver')=0
+   UNION ALL SELECT identity,run_id,name,members,days,1 AS finished FROM completed_runs WHERE channel=?`;
+ function best(sort){
+  const order=sort==='members'?'members DESC,days DESC,run_id ASC':'days DESC,members DESC,run_id ASC';
+  return `SELECT * FROM (SELECT *,ROW_NUMBER() OVER(PARTITION BY identity ORDER BY ${order}) AS best FROM scores) WHERE best=1 ORDER BY ${order}`;
+ }
+ const onAirRanks=`WITH scores AS (${scores}), by_days AS (${best('days')} LIMIT 10), by_members AS (${best('members')} LIMIT 10),
+   eligible AS (SELECT identity FROM by_days UNION SELECT identity FROM by_members)`;
+ async function television(identity){
+  const key=keyOf(identity);
+  const rows=(await prepare(`${onAirRanks} SELECT p.identity,p.street_tv,e.identity IS NOT NULL AS eligible
+   FROM players p LEFT JOIN eligible e ON p.identity=e.identity
+   WHERE p.identity=? OR (e.identity IS NOT NULL AND p.street_tv=1) ORDER BY p.identity`,channel,channel,key).all()).results;
+  const own=rows.find(row=>row.identity===key);
+  const userIds=rows.filter(row=>row.eligible&&row.street_tv).map(row=>Number(JSON.parse(row.identity)[2])).filter(id=>Number.isSafeInteger(id)&&id>0);
+  return {enabled:!!own?.street_tv,eligible:!!own?.eligible,userIds};
+ }
  // Older databases may predate migration 0001; preserve their player snapshots.
  let backupSchema;
  function ensureBackupSchema(){
@@ -28,6 +45,16 @@ export function createSharedStore(db,channel,{now=Date.now}={}) {
  const achievementsOf=async key=>(await prepare('SELECT achievement_id AS id,unlocked_at AS unlockedAt FROM player_achievements WHERE identity=? ORDER BY achievement_id',key).all()).results.map(entry=>({id:entry.id,unlockedAt:entry.unlockedAt}));
  const achievementWrites=(key,token,earned)=>earned.map(achievement=>prepare('INSERT OR IGNORE INTO player_achievements(identity,achievement_id,unlocked_at) SELECT identity,?,? FROM players WHERE identity=? AND commit_token=?',achievement.id,achievement.unlockedAt,key,token));
  return {
+  television,
+  async setTelevision(identity,enabled){
+   if(typeof enabled!=='boolean')throw new HttpError(400,'INVALID_PREFERENCE');
+   const key=keyOf(identity);
+   if(enabled){
+    const result=await prepare(`${onAirRanks} UPDATE players SET street_tv=1 WHERE identity=? AND identity IN (SELECT identity FROM eligible)`,channel,channel,key).run();
+    if(!result.meta.changes)throw new HttpError(403,'RANK_REQUIRED','进入任一榜单前十后即可上电视。');
+   }else await prepare('UPDATE players SET street_tv=0 WHERE identity=?',key).run();
+   return television(identity);
+  },
   async get(identity){const row=await ensure(identity),key=keyOf(identity),achievements=await achievementsOf(key),earned=earnedAchievements(JSON.parse(row.state)).filter(achievement=>!achievements.some(unlocked=>unlocked.id===achievement.id));await ensureBackupSchema();if(earned.length)await db.batch(earned.map(achievement=>prepare('INSERT OR IGNORE INTO player_achievements(identity,achievement_id,unlocked_at) SELECT identity,?,? FROM players WHERE identity=? AND revision=? AND state=?',achievement.id,row.last_seen,key,row.revision,row.state)));const backup=await prepare('SELECT snapshot FROM last_run_backups WHERE identity=?',key).first();return {...resultOf(row),achievements:await achievementsOf(key),backup:backup?JSON.parse(backup.snapshot):null};},
   async act(identity,input){
    validateInput(input);const key=keyOf(identity),fp=fingerprint(input),retry=await prior(key,input,fp);if(retry)return retry;
@@ -52,8 +79,7 @@ export function createSharedStore(db,channel,{now=Date.now}={}) {
   },
   async leaderboard(sort='members'){
    if(!['members','days'].includes(sort))throw new HttpError(400,'INVALID_SORT');
-   const order=sort==='members'?'members DESC,days DESC,run_id ASC':'days DESC,members DESC,run_id ASC';
-   const result=await prepare(`WITH scores AS (SELECT identity,public_id,run_id,name,members,days,0 AS finished FROM players WHERE channel=? AND json_extract(state,'$.gameOver')=0 UNION ALL SELECT identity,public_id,run_id,name,members,days,1 AS finished FROM completed_runs WHERE channel=?), ranked AS (SELECT *,ROW_NUMBER() OVER(PARTITION BY identity ORDER BY ${order}) AS best FROM scores) SELECT identity,name,members,days,finished FROM ranked WHERE best=1 ORDER BY ${order} LIMIT 100`,channel,channel).all();
+   const result=await prepare(`WITH scores AS (${scores}) ${best(sort)} LIMIT 100`,channel,channel).all();
    return {channel,trusted:channel!=='development',entries:result.results.map((row,i)=>{
     const subject=JSON.parse(row.identity)[2],id=Number(subject);
     const userId=channel!=='development'&&/^[1-9]\d*$/.test(subject)&&Number.isSafeInteger(id)?id:null;

@@ -36,7 +36,7 @@ node --env-file=.env server/index.mjs
 
 ## 平台接入
 
-运行 `bun run pack` 生成微应用 ZIP，在 Linux.do 批准清单中的权限和三个 `auth: platform` 端点。`PUBLIC_ORIGIN` 必须与清单中的 HTTPS origin 完全一致，不能带路径、query 或凭据。
+运行 `bun run pack` 生成微应用 ZIP，在 Linux.do 批准清单中的权限和五个 `auth: platform` 端点。`PUBLIC_ORIGIN` 必须与清单中的 HTTPS origin 完全一致，不能带路径、query 或凭据。
 
 客户端通过 `sdk.http.request` 调用命名端点。沙箱与正式版共用存档、跨局成就和排行榜，本机试玩存档不上传为可信成绩。
 
@@ -48,6 +48,8 @@ node --env-file=.env server/index.mjs
 | `GET /api/state` | 获取当前进度、修订号、计时、开站状态、成就和前局备份 |
 | `POST /api/actions` | 提交 `{revision, idempotencyKey, action}`，JSON 不超过 8 KiB |
 | `GET /api/leaderboard?sort=members\|days` | 每位玩家最佳记录，最多 100 条，默认按规模排序 |
+| `GET /api/television` | 当前账号的冠名选择、前十资格及当前可展示的用户 ID |
+| `POST /api/television` | 仅接受 `{"enabled":true}` 或 `{"enabled":false}`，以签名身份更改本人的偏好 |
 
 动作包括 `rename`、`restart`、`rent`、`renew`、`registration`、`strategy`、`resolve`、`claim`、`tick`、`heartbeat`、`speed`，具体字段与取值以 `server/protocol.mjs` 为准。
 
